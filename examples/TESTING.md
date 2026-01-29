@@ -10,14 +10,10 @@ This guide explains how to test all widgets using the `complete_demo.json` confi
 
 ## Loading the Demo Configuration
 
-### Option 1: Publish via MQTT
+### Publish via MQTT
 ```bash
 mosquitto_pub -h <BROKER_IP> -t hmi/config -r -f examples/complete_demo.json
 ```
-
-### Option 2: Update cached config (requires reflash)
-1. Replace the cached config in NVS
-2. Reflash the device
 
 ## Widget Testing Guide
 

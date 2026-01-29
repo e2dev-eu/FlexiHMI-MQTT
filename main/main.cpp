@@ -57,9 +57,8 @@ static void mqtt_task(void *pvParameters)
             ConfigManager::getInstance().queueConfig(payload);
         });
     } else {
-        ESP_LOGW(TAG, "MQTT connection failed, loading cached config");
+        ESP_LOGE(TAG, "MQTT connection failed - no configuration available");
         StatusInfoUI::getInstance().updateMqttStatus(false, settings.getBrokerUri());
-        ConfigManager::getInstance().loadCachedConfig();
     }
     
     // Keep task running

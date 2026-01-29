@@ -13,8 +13,6 @@
 #include "spinner_widget.h"
 #include "tabview_widget.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 
 // C wrapper functions for bringing UI elements to front
 extern "C" {
@@ -26,9 +24,6 @@ extern "C" {
 class TabviewWidget;
 
 static const char* TAG = "ConfigManager";
-static const char* NVS_NAMESPACE = "hmi_config";
-static const char* NVS_KEY_CONFIG = "json_config";
-static const char* NVS_KEY_VERSION = "version";
 
 ConfigManager& ConfigManager::getInstance() {
     static ConfigManager instance;
@@ -52,8 +47,8 @@ bool ConfigManager::parseAndApply(const std::string& json_config) {
         return false;
     }
     
-    ESP_LOGI(TAG, "Parsing JSON configuration, length: %d bytes", json_config.length());
-    ESP_LOGI(TAG, "JSON content: %s", json_config.c_str());
+    ESP_LOGI(TAG, "Processing new configuration (%d bytes)", json_config.length());
+    ESP_LOGV(TAG, "JSON content: %s", json_config.c_str());
     
     cJSON* root = cJSON_Parse(json_config.c_str());
     if (!root) {
@@ -64,20 +59,17 @@ bool ConfigManager::parseAndApply(const std::string& json_config) {
         return false;
     }
     
-    ESP_LOGI(TAG, "JSON parsed successfully");
+    ESP_LOGV(TAG, "JSON parsed successfully");
     
     // Extract version (optional, for logging only)
     cJSON* version_item = cJSON_GetObjectItem(root, "version");
     int new_version = 0;
     if (version_item && cJSON_IsNumber(version_item)) {
         new_version = version_item->valueint;
-        ESP_LOGI(TAG, "Configuration version: %d", new_version);
+        ESP_LOGV(TAG, "Configuration version: %d", new_version);
     } else {
-        ESP_LOGI(TAG, "No version field, applying configuration anyway");
+        ESP_LOGV(TAG, "No version field, applying configuration anyway");
     }
-    
-    // Always apply new configuration
-    ESP_LOGI(TAG, "Applying new configuration...");
     
     // Destroy existing widgets
     destroyAllWidgets();
@@ -96,13 +88,12 @@ bool ConfigManager::parseAndApply(const std::string& json_config) {
     }
     
     int widget_count = cJSON_GetArraySize(widgets_array);
-    ESP_LOGI(TAG, "Found %d widgets in configuration", widget_count);
+    ESP_LOGV(TAG, "Found %d widgets in configuration", widget_count);
     
     bool success = parseWidgets(widgets_array);
     
     if (success) {
         m_current_version = new_version;
-        saveCachedConfig(json_config);
         ESP_LOGI(TAG, "Configuration applied successfully, %d widgets created", m_active_widgets.size());
         
         // Bring settings and info icons to foreground so they're always on top
@@ -120,10 +111,10 @@ void ConfigManager::queueConfig(const std::string& json_config) {
     if (xSemaphoreTake(m_config_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         m_pending_config = json_config;
         m_has_pending_config = true;
-        ESP_LOGI(TAG, "Config queued for application by HMI task");
+        ESP_LOGV(TAG, "Config queued for application by HMI task");
         xSemaphoreGive(m_config_mutex);
     } else {
-        ESP_LOGW(TAG, "Failed to queue config - mutex timeout");
+        ESP_LOGE(TAG, "Failed to queue config - mutex timeout");
     }
 }
 
@@ -210,10 +201,10 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     }
     
     // Log all fields in this widget
-    ESP_LOGI(TAG, "Widget fields:");
+    ESP_LOGV(TAG, "Widget fields:");
     cJSON* field = widget_json->child;
     while (field) {
-        ESP_LOGI(TAG, "  - %s (type: %d)", field->string ? field->string : "null", field->type);
+        ESP_LOGV(TAG, "  - %s (type: %d)", field->string ? field->string : "null", field->type);
         field = field->next;
     }
     
@@ -228,7 +219,7 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
         return false;
     }
     std::string type = type_item->valuestring;
-    ESP_LOGI(TAG, "Widget type: %s", type.c_str());
+    ESP_LOGV(TAG, "Widget type: %s", type.c_str());
     
     // Extract id
     cJSON* id_item = cJSON_GetObjectItem(widget_json, "id");
@@ -241,7 +232,7 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
         return false;
     }
     std::string id = id_item->valuestring;
-    ESP_LOGI(TAG, "Widget id: %s", id.c_str());
+    ESP_LOGV(TAG, "Widget id: %s", id.c_str());
     
     // Extract position and size (directly from widget object)
     cJSON* x_item = cJSON_GetObjectItem(widget_json, "x");
@@ -299,7 +290,7 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
             [widget](const std::string& topic, const std::string& payload) {
                 widget->onMqttMessage(topic, payload);
             });
-        ESP_LOGI(TAG, "Widget '%s' subscribed to %s", id.c_str(), topic.c_str());
+        ESP_LOGV(TAG, "Widget '%s' subscribed to %s", id.c_str(), topic.c_str());
     }
     
     // Process children if present
@@ -315,7 +306,7 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
                 if (tab_children && cJSON_IsArray(tab_children)) {
                     lv_obj_t* tab_obj = tabview->getTabByName(tab_name);
                     if (tab_obj && lv_obj_is_valid(tab_obj)) {
-                        ESP_LOGI(TAG, "Parsing %d children for tab '%s'", 
+                        ESP_LOGV(TAG, "Parsing %d children for tab '%s'", 
                                  cJSON_GetArraySize(tab_children), tab_name.c_str());
                         parseWidgets(tab_children, tab_obj);
                     }
@@ -325,10 +316,10 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
         // Standard array-based children for containers and other widgets
         else if (cJSON_IsArray(children)) {
             int child_count = cJSON_GetArraySize(children);
-            ESP_LOGI(TAG, "Widget '%s' has %d children, parsing recursively...", id.c_str(), child_count);
+            ESP_LOGV(TAG, "Widget '%s' has %d children, parsing recursively...", id.c_str(), child_count);
             lv_obj_t* parent_obj = widget->getLvglObject();
             if (parent_obj && lv_obj_is_valid(parent_obj)) {
-                ESP_LOGI(TAG, "Parent LVGL object is valid, creating children");
+                ESP_LOGV(TAG, "Parent LVGL object is valid, creating children");
                 parseWidgets(children, parent_obj);
             } else {
                 ESP_LOGE(TAG, "Widget '%s' has invalid LVGL object, cannot create children", id.c_str());
@@ -337,14 +328,14 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     }
     
     m_active_widgets.push_back(widget);
-    ESP_LOGI(TAG, "Created widget: type=%s, id=%s, pos=(%d,%d), size=(%dx%d)", 
+    ESP_LOGV(TAG, "Created widget: type=%s, id=%s, pos=(%d,%d), size=(%dx%d)", 
              type.c_str(), id.c_str(), x, y, w, h);
     
     return true;
 }
 
 void ConfigManager::destroyAllWidgets() {
-    ESP_LOGI(TAG, "Destroying %d widgets", m_active_widgets.size());
+    ESP_LOGV(TAG, "Destroying %d widgets", m_active_widgets.size());
     
     for (HMIWidget* widget : m_active_widgets) {
         widget->destroy();
@@ -352,91 +343,4 @@ void ConfigManager::destroyAllWidgets() {
     }
     
     m_active_widgets.clear();
-}
-
-bool ConfigManager::loadCachedConfig() {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "No cached configuration found");
-        return false;
-    }
-    
-    // Get version
-    int32_t version = 0;
-    err = nvs_get_i32(nvs_handle, NVS_KEY_VERSION, &version);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "No cached version found");
-        nvs_close(nvs_handle);
-        return false;
-    }
-    
-    // Get config size
-    size_t required_size = 0;
-    err = nvs_get_str(nvs_handle, NVS_KEY_CONFIG, NULL, &required_size);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to get cached config size");
-        nvs_close(nvs_handle);
-        return false;
-    }
-    
-    // Allocate and read config
-    char* json_config = (char*)malloc(required_size);
-    if (!json_config) {
-        ESP_LOGE(TAG, "Failed to allocate memory for cached config");
-        nvs_close(nvs_handle);
-        return false;
-    }
-    
-    err = nvs_get_str(nvs_handle, NVS_KEY_CONFIG, json_config, &required_size);
-    nvs_close(nvs_handle);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read cached config");
-        free(json_config);
-        return false;
-    }
-    
-    ESP_LOGI(TAG, "Loaded cached configuration (version %d)", (int)version);
-    
-    std::string config_str(json_config);
-    free(json_config);
-    
-    return parseAndApply(config_str);
-}
-
-bool ConfigManager::saveCachedConfig(const std::string& json_config) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open NVS for writing: %s", esp_err_to_name(err));
-        return false;
-    }
-    
-    // Save version
-    err = nvs_set_i32(nvs_handle, NVS_KEY_VERSION, m_current_version);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to save version: %s", esp_err_to_name(err));
-        nvs_close(nvs_handle);
-        return false;
-    }
-    
-    // Save config
-    err = nvs_set_str(nvs_handle, NVS_KEY_CONFIG, json_config.c_str());
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to save config: %s", esp_err_to_name(err));
-        nvs_close(nvs_handle);
-        return false;
-    }
-    
-    err = nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to commit NVS: %s", esp_err_to_name(err));
-        return false;
-    }
-    
-    ESP_LOGI(TAG, "Configuration cached to NVS");
-    return true;
 }

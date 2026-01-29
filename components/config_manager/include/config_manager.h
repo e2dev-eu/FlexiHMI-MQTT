@@ -24,12 +24,7 @@ public:
     // Get current configuration version
     int getCurrentVersion() const { return m_current_version; }
     
-    // Load cached configuration from NVS
-    bool loadCachedConfig();
-    
-    // Save configuration to NVS
-    bool saveCachedConfig(const std::string& json_config);
-    
+
     // Destroy all active widgets
     void destroyAllWidgets();
     

@@ -210,7 +210,7 @@ Topic routing supports exact matches and wildcards.
 
 ## Configuration HMI (⚙️ Gear Screen)
 
-### Stored Locally (NVS / SPIFFS)
+### Stored Locally (NVS)
 
 - MQTT broker address
 - Port
@@ -230,13 +230,14 @@ Topic routing supports exact matches and wildcards.
 
 ## Persistence Layer
 
-- **NVS** for parameters
-- **SPIFFS / LittleFS** for cached JSON
+- **NVS** for MQTT connection parameters only
+- **UI Configuration received from MQTT broker** (not cached locally)
 
-### Fallback Logic
+### Configuration Loading
 
-- If MQTT unavailable → load cached UI
-- If JSON invalid → reject update, keep old UI
+- Configuration is received from the MQTT broker on the configured topic
+- If MQTT unavailable → no UI loaded (only settings screen available)
+- If JSON invalid → reject update, keep previous UI
 
 ---
 
