@@ -1,0 +1,39 @@
+# ESP-IDF build artifacts
+build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+
+# Managed components
+managed_components/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Editor and IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Debug files
+*.elf
+*.bin
+*.map
+
+# Dependencies
+node_modules/
+
+# Flash download tool config
+download.config
+
+# Local environment
+.env
+.env.local
