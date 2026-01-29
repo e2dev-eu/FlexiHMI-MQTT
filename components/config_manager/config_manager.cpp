@@ -9,6 +9,12 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 
+// C wrapper functions for bringing UI elements to front
+extern "C" {
+    void settings_ui_bring_to_front();
+    void status_info_bring_to_front();
+}
+
 static const char* TAG = "ConfigManager";
 static const char* NVS_NAMESPACE = "hmi_config";
 static const char* NVS_KEY_CONFIG = "json_config";
@@ -88,6 +94,10 @@ bool ConfigManager::parseAndApply(const std::string& json_config) {
         m_current_version = new_version;
         saveCachedConfig(json_config);
         ESP_LOGI(TAG, "Configuration applied successfully, %d widgets created", m_active_widgets.size());
+        
+        // Bring settings and info icons to foreground so they're always on top
+        settings_ui_bring_to_front();
+        status_info_bring_to_front();
     } else {
         ESP_LOGE(TAG, "Failed to apply configuration");
     }
