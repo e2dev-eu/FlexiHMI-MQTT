@@ -1,0 +1,53 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <memory>
+#include "cJSON.h"
+#include "hmi_widget.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+class ConfigManager {
+public:
+    static ConfigManager& getInstance();
+    
+    // Queue config for application (thread-safe, called from MQTT task)
+    void queueConfig(const std::string& json_config);
+    
+    // Apply pending config if available (must be called from HMI/LVGL task)
+    void processPendingConfig();
+    
+    // Parse JSON configuration and create/update widgets (LVGL thread only!)
+    bool parseAndApply(const std::string& json_config);
+    
+    // Get current configuration version
+    int getCurrentVersion() const { return m_current_version; }
+    
+    // Load cached configuration from NVS
+    bool loadCachedConfig();
+    
+    // Save configuration to NVS
+    bool saveCachedConfig(const std::string& json_config);
+    
+    // Destroy all active widgets
+    void destroyAllWidgets();
+    
+private:
+    ConfigManager();
+    ~ConfigManager();
+    ConfigManager(const ConfigManager&) = delete;
+    ConfigManager& operator=(const ConfigManager&) = delete;
+    
+    bool parseWidgets(cJSON* widgets_array, lv_obj_t* parent = nullptr);
+    bool createWidget(cJSON* widget_json, lv_obj_t* parent = nullptr);
+    HMIWidget* createWidgetByType(const std::string& type);
+    
+    int m_current_version;
+    std::vector<HMIWidget*> m_active_widgets;
+    
+    // Pending config for deferred application
+    std::string m_pending_config;
+    bool m_has_pending_config;
+    SemaphoreHandle_t m_config_mutex;
+};

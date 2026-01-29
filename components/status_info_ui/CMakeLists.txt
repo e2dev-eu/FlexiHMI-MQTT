@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS 
+        "status_info_ui.cpp"
+    INCLUDE_DIRS 
+        "include"
+    REQUIRES
+        lvgl__lvgl
+        freertos
+)

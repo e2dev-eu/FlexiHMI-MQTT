@@ -225,7 +225,6 @@ Topic routing supports exact matches and wildcards.
 
 - This HMI is never destroyed
 - Runs on a separate LVGL layer
-- Optional PIN protection
 
 ---
 

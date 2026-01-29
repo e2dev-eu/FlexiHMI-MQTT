@@ -7,4 +7,5 @@ idf_component_register(
         esp_eth
         esp_netif
         driver
+        status_info_ui
 )

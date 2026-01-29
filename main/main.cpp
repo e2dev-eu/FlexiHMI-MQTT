@@ -7,8 +7,66 @@
 #include "lvgl.h"
 #include "bsp/esp-bsp.h"
 #include "bsp/display.h"
+#include "mqtt_manager.h"
+#include "config_manager.h"
+#include "settings_ui.h"
+#include "status_info_ui.h"
 
 static const char *TAG = "app_main_cpp";
+
+// MQTT Task - handles MQTT events and configuration updates
+static void mqtt_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "MQTT Task started");
+    
+    // Wait for Ethernet to be ready
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    
+    // Load settings and connect to MQTT
+    SettingsUI& settings = SettingsUI::getInstance();
+    settings.loadSettings();
+    
+    // Initialize MQTT with loaded settings
+    MQTTManager& mqtt = MQTTManager::getInstance();
+    if (!settings.getUsername().empty()) {
+        ESP_LOGI(TAG, "Connecting to MQTT with authentication");
+        mqtt.init(settings.getBrokerUri(), settings.getUsername(), 
+                  settings.getPassword(), settings.getClientId());
+    } else {
+        ESP_LOGI(TAG, "Connecting to MQTT: %s", settings.getBrokerUri().c_str());
+        mqtt.init(settings.getBrokerUri(), settings.getClientId());
+    }
+    
+    // Wait for MQTT connection
+    int retry_count = 0;
+    while (!mqtt.isConnected() && retry_count < 30) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        retry_count++;
+    }
+    
+    if (mqtt.isConnected()) {
+        std::string config_topic = settings.getConfigTopic();
+        ESP_LOGI(TAG, "MQTT connected, subscribing to config topic: %s", config_topic.c_str());
+        
+        // Update status info
+        StatusInfoUI::getInstance().updateMqttStatus(true, settings.getBrokerUri());
+        
+        // Subscribe to configuration topic
+        mqtt.subscribe(config_topic, 0, [](const std::string& topic, const std::string& payload) {
+            ESP_LOGI(TAG, "Received config on %s, size: %d bytes", topic.c_str(), payload.size());
+            ConfigManager::getInstance().queueConfig(payload);
+        });
+    } else {
+        ESP_LOGW(TAG, "MQTT connection failed, loading cached config");
+        StatusInfoUI::getInstance().updateMqttStatus(false, settings.getBrokerUri());
+        ConfigManager::getInstance().loadCachedConfig();
+    }
+    
+    // Keep task running
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 
 // HMI Task - runs LVGL UI updates in separate task
 static void hmi_task(void *pvParameters)
@@ -19,7 +77,19 @@ static void hmi_task(void *pvParameters)
         // Lock display and perform UI operations
         bsp_display_lock(0);
         
-        // Add your UI updates here
+        // Process any pending configuration from MQTT
+        ConfigManager::getInstance().processPendingConfig();
+        
+        // Update system info periodically
+        static int update_counter = 0;
+        if (++update_counter >= 10) {  // Update every second
+            update_counter = 0;
+            StatusInfoUI::getInstance().updateSystemInfo(
+                esp_get_free_heap_size(),
+                esp_get_minimum_free_heap_size()
+            );
+        }
+        
         // lv_timer_handler is called automatically by the LVGL port
         
         bsp_display_unlock();
@@ -29,43 +99,39 @@ static void hmi_task(void *pvParameters)
     }
 }
 
-// Create demo UI
-static void create_demo_ui(void)
+// Initialize base UI with settings gear icon
+static void init_base_ui(void)
 {
     // Lock display while creating UI
     bsp_display_lock(0);
     
-    // Create a simple demo screen
+    // Setup screen background
     lv_obj_t *scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x003a57), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x1E1E1E), LV_PART_MAIN);
     
-    // Create a label
-    lv_obj_t *label = lv_label_create(scr);
-    lv_label_set_text(label, "ESP32-P4 LVGL9 Panel\\nTouch the screen!");
-    lv_obj_set_style_text_color(label, lv_color_white(), LV_PART_MAIN);
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, -50);
+    // Initialize settings UI (creates gear icon)
+    SettingsUI::getInstance().init(scr);
     
-    // Create a button
-    lv_obj_t *btn = lv_button_create(scr);
-    lv_obj_set_size(btn, 200, 80);
-    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 50);
-    
-    lv_obj_t *btn_label = lv_label_create(btn);
-    lv_label_set_text(btn_label, "Click Me!");
-    lv_obj_center(btn_label);
+    // Initialize status info UI (creates info icon)
+    StatusInfoUI::getInstance().init(scr);
     
     bsp_display_unlock();
+    
+    ESP_LOGI(TAG, "Base UI initialized");
 }
 
 extern "C" void app_main_cpp(void)
 {
-    ESP_LOGI(TAG, "Initializing ESP32-P4 Function EV Board UI...");
+    ESP_LOGI(TAG, "Initializing ESP32-P4 MQTT Panel...");
     
-    // Create demo UI
-    create_demo_ui();
+    // Initialize base UI (gear icon + placeholder)
+    init_base_ui();
     
     // Create HMI task for UI updates
     xTaskCreate(hmi_task, "hmi_task", 8192, NULL, 4, NULL);
     
-    ESP_LOGI(TAG, "HMI initialization complete");
+    // Create MQTT task for configuration and message handling
+    xTaskCreate(mqtt_task, "mqtt_task", 8192, NULL, 5, NULL);
+    
+    ESP_LOGI(TAG, "MQTT Panel initialization complete");
 }

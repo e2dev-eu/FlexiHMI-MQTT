@@ -8,4 +8,11 @@ idf_component_register(
         ethernet
         esp_timer
         freertos
+        espressif__esp32_p4_function_ev_board
+        hmi_widgets
+        mqtt_manager
+        config_manager
+        settings_ui
+        status_info_ui
+        mqtt
 )

@@ -7,6 +7,7 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "driver/gpio.h"
+#include "status_info_ui.h"
 
 static const char *TAG = "ethernet";
 
@@ -73,6 +74,13 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "ETHMASK:" IPSTR, IP2STR(&ip_info->netmask));
     ESP_LOGI(TAG, "ETHGW:" IPSTR, IP2STR(&ip_info->gw));
     ESP_LOGI(TAG, "~~~~~~~~~~~");
+    
+    // Update status info UI
+    char ip_str[16], mask_str[16], gw_str[16];
+    snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info->ip));
+    snprintf(mask_str, sizeof(mask_str), IPSTR, IP2STR(&ip_info->netmask));
+    snprintf(gw_str, sizeof(gw_str), IPSTR, IP2STR(&ip_info->gw));
+    status_info_update_network(ip_str, mask_str, gw_str);
 }
 
 esp_err_t ethernet_init(void)
