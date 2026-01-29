@@ -16,6 +16,8 @@ public:
 private:
     std::string m_text;
     std::string m_format;  // printf-style format string
+    lv_color_t m_color;
+    bool m_has_color = false;
 };
 
 #endif // LABEL_WIDGET_H

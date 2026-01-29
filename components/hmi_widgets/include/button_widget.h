@@ -20,6 +20,8 @@ private:
     std::string m_publish_topic;
     std::string m_publish_payload;
     lv_obj_t* m_label;
+    lv_color_t m_color;
+    bool m_has_color = false;
 };
 
 #endif // BUTTON_WIDGET_H

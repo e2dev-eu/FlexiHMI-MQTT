@@ -17,6 +17,9 @@ public:
     // Check if settings screen is visible
     bool isVisible() const { return m_visible; }
     
+    // Bring gear icon to foreground (call after creating widgets)
+    void bringToFront();
+    
     // Load settings from NVS
     bool loadSettings();
     

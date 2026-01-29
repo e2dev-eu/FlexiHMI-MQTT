@@ -18,6 +18,16 @@ bool LabelWidget::create(const std::string& id, int x, int y, int w, int h, cJSO
         if (format_item && cJSON_IsString(format_item)) {
             m_format = format_item->valuestring;
         }
+        
+        cJSON* color_item = cJSON_GetObjectItem(properties, "color");
+        if (color_item && cJSON_IsString(color_item)) {
+            const char* color_str = color_item->valuestring;
+            if (color_str[0] == '#') {
+                uint32_t color = strtol(color_str + 1, NULL, 16);
+                m_color = lv_color_hex(color);
+                m_has_color = true;
+            }
+        }
     }
     
     // Create label object
@@ -32,6 +42,11 @@ bool LabelWidget::create(const std::string& id, int x, int y, int w, int h, cJSO
     lv_obj_set_size(m_lvgl_obj, w, h);
     lv_label_set_text(m_lvgl_obj, m_text.empty() ? "Label" : m_text.c_str());
     lv_label_set_long_mode(m_lvgl_obj, LV_LABEL_LONG_WRAP);
+    
+    // Apply custom color if specified
+    if (m_has_color) {
+        lv_obj_set_style_text_color(m_lvgl_obj, m_color, LV_PART_MAIN);
+    }
     
     ESP_LOGI(TAG, "Created label widget: %s at (%d,%d) size (%dx%d)", 
              id.c_str(), x, y, w, h);

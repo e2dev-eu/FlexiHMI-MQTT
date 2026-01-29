@@ -10,6 +10,7 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     m_min = 0;
     m_max = 100;
     m_value = 50;
+    m_retained = true;  // Default to retained messages
     
     // Extract properties
     if (properties) {
@@ -37,6 +38,21 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
         if (mqtt_topic && cJSON_IsString(mqtt_topic)) {
             m_mqtt_topic = mqtt_topic->valuestring;
         }
+        
+        cJSON* retained_item = cJSON_GetObjectItem(properties, "retained");
+        if (retained_item && cJSON_IsBool(retained_item)) {
+            m_retained = cJSON_IsTrue(retained_item);
+        }
+        
+        cJSON* color_item = cJSON_GetObjectItem(properties, "color");
+        if (color_item && cJSON_IsString(color_item)) {
+            const char* color_str = color_item->valuestring;
+            if (color_str[0] == '#') {
+                uint32_t color = strtol(color_str + 1, NULL, 16);
+                m_color = lv_color_hex(color);
+                m_has_color = true;
+            }
+        }
     }
     
     // Create label if specified
@@ -60,15 +76,30 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     lv_slider_set_range(m_lvgl_obj, m_min, m_max);
     lv_slider_set_value(m_lvgl_obj, m_value, LV_ANIM_OFF);
     
+    // Apply custom color if specified
+    if (m_has_color) {
+        lv_obj_set_style_bg_color(m_lvgl_obj, m_color, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(m_lvgl_obj, m_color, LV_PART_KNOB);
+    }
+    
     // Add event callback
     lv_obj_add_event_cb(m_lvgl_obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, this);
     
     // Create value label below slider
-    m_value_label = lv_label_create(lv_screen_active());
+    m_value_label = lv_label_create(parent_obj);
     char buf[16];
     snprintf(buf, sizeof(buf), "%d", m_value);
     lv_label_set_text(m_value_label, buf);
-    lv_obj_set_pos(m_value_label, x + w / 2 - 10, y + h + 5);
+    lv_obj_set_pos(m_value_label, x + w / 2, y + h / 2 - 5);
+    
+    // Subscribe to mqtt_topic to receive external updates
+    if (!m_mqtt_topic.empty()) {
+        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
+            [this](const std::string& topic, const std::string& payload) {
+                this->onMqttMessage(topic, payload);
+            });
+        ESP_LOGI(TAG, "Slider %s subscribed to %s for external updates", id.c_str(), m_mqtt_topic.c_str());
+    }
     
     ESP_LOGI(TAG, "Created slider widget: %s at (%d,%d) range [%d,%d]", 
              id.c_str(), x, y, m_min, m_max);
@@ -99,20 +130,61 @@ void SliderWidget::onMqttMessage(const std::string& topic, const std::string& pa
     
     int value = std::atoi(payload.c_str());
     if (value >= m_min && value <= m_max) {
-        m_value = value;
-        lv_slider_set_value(m_lvgl_obj, value, LV_ANIM_ON);
+        // Only update if value actually changed
+        if (value == m_value) {
+            return;
+        }
         
-        // Update value label
+        // Allocate data for async call (will be freed in callback)
+        AsyncUpdateData* data = new AsyncUpdateData{this, value};
+        
+        // Schedule update on LVGL task
+        lv_async_call(async_update_cb, data);
+        
+        ESP_LOGD(TAG, "Scheduled async update for slider %s: %d", m_id.c_str(), value);
+    }
+}
+
+void SliderWidget::async_update_cb(void* user_data) {
+    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
+    if (data && data->widget) {
+        data->widget->updateValue(data->value);
+    }
+    delete data;
+}
+
+void SliderWidget::updateValue(int value) {
+    if (!m_lvgl_obj || !lv_obj_is_valid(m_lvgl_obj)) {
+        return;
+    }
+    
+    m_value = value;
+    
+    // Set flag to prevent event callback from publishing
+    m_updating_from_mqtt = true;
+    
+    lv_slider_set_value(m_lvgl_obj, value, LV_ANIM_ON);
+    
+    // Update value label
+    if (m_value_label && lv_obj_is_valid(m_value_label)) {
         char buf[16];
         snprintf(buf, sizeof(buf), "%d", value);
         lv_label_set_text(m_value_label, buf);
-        
-        ESP_LOGD(TAG, "Updated slider %s: %d", m_id.c_str(), value);
     }
+    
+    m_updating_from_mqtt = false;
+    
+    ESP_LOGI(TAG, "Updated slider %s: %d", m_id.c_str(), value);
 }
 
 void SliderWidget::slider_event_cb(lv_event_t* e) {
     SliderWidget* widget = static_cast<SliderWidget*>(lv_event_get_user_data(e));
+    
+    // Don't publish if we're updating from MQTT (prevent feedback loop)
+    if (widget->m_updating_from_mqtt) {
+        return;
+    }
+    
     lv_obj_t* obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
     
     int value = lv_slider_get_value(obj);
@@ -127,8 +199,8 @@ void SliderWidget::slider_event_cb(lv_event_t* e) {
     if (!widget->m_mqtt_topic.empty()) {
         char payload[16];
         snprintf(payload, sizeof(payload), "%d", value);
-        MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, false);
-        ESP_LOGI(TAG, "Slider %s changed to %d, published to %s", 
-                 widget->m_id.c_str(), value, widget->m_mqtt_topic.c_str());
+        MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
+        ESP_LOGI(TAG, "Slider %s changed to %d, published to %s (retained=%d)", 
+                 widget->m_id.c_str(), value, widget->m_mqtt_topic.c_str(), widget->m_retained);
     }
 }

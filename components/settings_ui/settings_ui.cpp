@@ -5,6 +5,12 @@
 #include "nvs.h"
 
 static const char* TAG = "SettingsUI";
+
+// C wrapper for bringing icon to front
+extern "C" void settings_ui_bring_to_front() {
+    SettingsUI::getInstance().bringToFront();
+}
+
 static const char* NVS_NAMESPACE = "mqtt_settings";
 static const char* NVS_KEY_BROKER = "broker_uri";
 static const char* NVS_KEY_USERNAME = "username";
@@ -197,6 +203,12 @@ void SettingsUI::hide() {
     if (m_visible) {
         destroySettingsScreen();
         m_visible = false;
+    }
+}
+
+void SettingsUI::bringToFront() {
+    if (m_gear_icon) {
+        lv_obj_move_foreground(m_gear_icon);
     }
 }
 

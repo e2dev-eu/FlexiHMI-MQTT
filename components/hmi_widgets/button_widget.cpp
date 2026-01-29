@@ -24,6 +24,16 @@ bool ButtonWidget::create(const std::string& id, int x, int y, int w, int h, cJS
         if (pub_payload_item && cJSON_IsString(pub_payload_item)) {
             m_publish_payload = pub_payload_item->valuestring;
         }
+        
+        cJSON* color_item = cJSON_GetObjectItem(properties, "color");
+        if (color_item && cJSON_IsString(color_item)) {
+            const char* color_str = color_item->valuestring;
+            if (color_str[0] == '#') {
+                uint32_t color = strtol(color_str + 1, NULL, 16);
+                m_color = lv_color_hex(color);
+                m_has_color = true;
+            }
+        }
     }
     
     // Create button object
@@ -36,6 +46,11 @@ bool ButtonWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
     lv_obj_set_size(m_lvgl_obj, w, h);
+    
+    // Apply custom color if specified
+    if (m_has_color) {
+        lv_obj_set_style_bg_color(m_lvgl_obj, m_color, LV_PART_MAIN);
+    }
     
     // Create label on button
     m_label = lv_label_create(m_lvgl_obj);

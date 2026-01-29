@@ -3,7 +3,10 @@
 #include <cstdio>
 
 static const char* TAG = "StatusInfoUI";
-
+// C wrapper for bringing icon to front
+extern "C" void status_info_bring_to_front() {
+    StatusInfoUI::getInstance().bringToFront();
+}
 // C wrapper functions implementation
 extern "C" {
     void status_info_update_network(const char* ip, const char* mask, const char* gateway) {
@@ -183,6 +186,12 @@ void StatusInfoUI::hide() {
     if (m_visible) {
         destroyStatusScreen();
         m_visible = false;
+    }
+}
+
+void StatusInfoUI::bringToFront() {
+    if (m_info_icon) {
+        lv_obj_move_foreground(m_info_icon);
     }
 }
 

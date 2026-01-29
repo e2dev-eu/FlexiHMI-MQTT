@@ -33,6 +33,9 @@ public:
     // Check if status screen is visible
     bool isVisible() const { return m_visible; }
     
+    // Bring info icon to foreground (call after creating widgets)
+    void bringToFront();
+    
     // Update status information
     void updateNetworkStatus(const std::string& ip, const std::string& mask, const std::string& gateway);
     void updateMqttStatus(bool connected, const std::string& broker);
