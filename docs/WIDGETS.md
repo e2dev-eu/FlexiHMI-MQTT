@@ -1,6 +1,14 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 11 currently implemented widgets and potential future widgets based on LVGL components.
+
+## System Capabilities
+- **MQTT Buffer:** 32KB with automatic chunked message handling
+- **Large Configurations:** Supports JSON configs up to 32KB
+- **Thread Safety:** Queue-based config updates, async LVGL calls
+- **Color Support:** Hex color format (#RRGGBB) for all visual elements
+- **Bidirectional MQTT:** Widgets publish state changes and subscribe to updates
+- **Feedback Prevention:** Automatic loop prevention on MQTT updates
 
 ## Table of Contents
 - [Currently Implemented Widgets](#currently-implemented-widgets)
@@ -225,13 +233,255 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 ---
 
+### 6. Arc Widget
+
+**Description:** Circular arc control for gauges or rotary inputs.
+
+**LVGL Component:** `lv_arc`
+
+**Implementation Features:**
+- Circular slider/gauge
+- Configurable value range (min/max)
+- MQTT bidirectional control
+- Feedback loop prevention
+- Custom arc color
+- Touch interaction support
+
+**JSON Example:**
+```json
+{
+  "type": "arc",
+  "id": "volume_control",
+  "x": 100,
+  "y": 100,
+  "w": 150,
+  "h": 150,
+  "properties": {
+    "min": 0,
+    "max": 100,
+    "value": 50,
+    "mqtt_topic": "audio/volume",
+    "retained": true,
+    "color": "#9C27B0"
+  }
+}
+```
+
+**Properties:**
+- `min` (number): Minimum value (default: 0)
+- `max` (number): Maximum value (default: 100)
+- `value` (number): Initial value
+- `mqtt_topic` (string): Topic for publish/subscribe
+- `retained` (boolean, optional): Publish as retained message
+- `color` (string, optional): Arc indicator color in hex format
+
+---
+
+### 7. Dropdown Widget
+
+**Description:** Dropdown selection list.
+
+**LVGL Component:** `lv_dropdown`
+
+**Implementation Features:**
+- Multiple choice selection
+- String-based options list
+- MQTT publish on selection change
+- MQTT subscribe to set selection
+- Retained message support
+- Custom dropdown color
+
+**JSON Example:**
+```json
+{
+  "type": "dropdown",
+  "id": "mode_selector",
+  "x": 100,
+  "y": 150,
+  "w": 180,
+  "h": 40,
+  "properties": {
+    "options": ["Auto", "Heat", "Cool", "Fan"],
+    "selected": 0,
+    "mqtt_topic": "hvac/mode",
+    "retained": true,
+    "color": "#03A9F4"
+  }
+}
+```
+
+**Properties:**
+- `options` (array): List of string options
+- `selected` (number): Initial selected index (0-based)
+- `mqtt_topic` (string): Topic for publish/subscribe
+- `retained` (boolean, optional): Publish as retained message
+- `color` (string, optional): Dropdown color in hex format
+
+---
+
+### 8. Checkbox Widget
+
+**Description:** Checkbox for boolean selection with text label.
+
+**LVGL Component:** `lv_checkbox`
+
+**Implementation Features:**
+- Checkbox with text label
+- MQTT bidirectional control
+- True/false state publishing
+- Retained message support
+- Custom checkbox color
+
+**JSON Example:**
+```json
+{
+  "type": "checkbox",
+  "id": "enable_notifications",
+  "x": 50,
+  "y": 300,
+  "w": 250,
+  "h": 40,
+  "properties": {
+    "text": "Enable Notifications",
+    "checked": true,
+    "mqtt_topic": "settings/notifications",
+    "retained": true,
+    "color": "#4CAF50"
+  }
+}
+```
+
+**Properties:**
+- `text` (string): Label text next to checkbox
+- `checked` (boolean): Initial checked state
+- `mqtt_topic` (string): Topic for publish/subscribe
+- `retained` (boolean, optional): Publish as retained message
+- `color` (string, optional): Checkbox color in hex format
+
+---
+
+### 9. Bar Widget
+
+**Description:** Progress bar or level indicator (read-only).
+
+**LVGL Component:** `lv_bar`
+
+**Implementation Features:**
+- Horizontal or vertical bar
+- Read-only progress indicator
+- MQTT subscription for value updates
+- Configurable min/max range
+- Custom bar color
+- Perfect for battery levels, progress indicators
+
+**JSON Example:**
+```json
+{
+  "type": "bar",
+  "id": "battery_level",
+  "x": 50,
+  "y": 50,
+  "w": 200,
+  "h": 20,
+  "properties": {
+    "min": 0,
+    "max": 100,
+    "value": 75,
+    "mqtt_topic": "device/battery",
+    "color": "#4CAF50"
+  }
+}
+```
+
+**Properties:**
+- `min` (number): Minimum value (default: 0)
+- `max` (number): Maximum value (default: 100)
+- `value` (number): Initial value
+- `mqtt_topic` (string): Topic to subscribe for updates
+- `color` (string, optional): Bar indicator color in hex format
+
+---
+
+### 10. LED Widget
+
+**Description:** Status LED indicator with brightness control.
+
+**LVGL Component:** `lv_led`
+
+**Implementation Features:**
+- ON/OFF state with brightness
+- MQTT subscription for state updates
+- Configurable ON/OFF colors
+- Brightness levels 0-255
+- Perfect for status indicators
+
+**JSON Example:**
+```json
+{
+  "type": "led",
+  "id": "status_led",
+  "x": 100,
+  "y": 100,
+  "w": 30,
+  "h": 30,
+  "properties": {
+    "brightness": 255,
+    "mqtt_topic": "device/status",
+    "color_on": "#00FF00",
+    "color_off": "#404040"
+  }
+}
+```
+
+**Properties:**
+- `brightness` (number): Initial brightness 0-255 (0=OFF)
+- `mqtt_topic` (string): Topic to subscribe for updates
+- `color_on` (string, optional): LED color when ON (hex format)
+- `color_off` (string, optional): LED color when OFF (hex format)
+
+---
+
+### 11. Spinner Widget
+
+**Description:** Loading/activity spinner animation.
+
+**LVGL Component:** `lv_spinner`
+
+**Implementation Features:**
+- Animated spinning arc
+- MQTT control to show/hide
+- Custom spinner color
+- Perfect for loading indicators
+
+**JSON Example:**
+```json
+{
+  "type": "spinner",
+  "id": "loading_indicator",
+  "x": 200,
+  "y": 150,
+  "w": 50,
+  "h": 50,
+  "properties": {
+    "mqtt_topic": "ui/loading",
+    "color": "#2196F3"
+  }
+}
+```
+
+**Properties:**
+- `mqtt_topic` (string): Topic to subscribe for show/hide commands
+- `color` (string, optional): Spinner color in hex format
+
+---
+
 ## Planned Widgets
 
 The following widgets could be implemented based on LVGL components:
 
 > **Note:** MQTT data formats for planned widgets are conceptual and subject to change during implementation.
 
-### 6. Chart Widget
+### 12. Chart Widget
 
 **Description:** Line or bar chart for visualizing time-series data.
 
@@ -271,160 +521,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 7. Arc Widget
-
-**Description:** Circular arc control for gauges or rotary inputs.
-
-**LVGL Component:** `lv_arc`
-
-**Implementation Concept:**
-- Circular slider/gauge
-- Angle range configuration
-- MQTT bidirectional control
-- Perfect for thermostats or volume controls
-
-**MQTT Data Format:**
-- **Publishes to:** `mqtt_topic` (numeric value as string)
-- **Subscribes to:** `mqtt_topic` (numeric value within min/max range)
-- **Example:** `"75"` (for volume level 0-100)
-
-**JSON Example:**
-```json
-{
-  "type": "arc",
-  "id": "volume_control",
-  "x": 100,
-  "y": 100,
-  "w": 150,
-  "h": 150,
-  "properties": {
-    "min": 0,
-    "max": 100,
-    "value": 50,
-    "start_angle": 135,
-    "end_angle": 45,
-    "mqtt_topic": "audio/volume",
-    "color": "#9C27B0"
-  }
-}
-```
-
----
-
-### 8. Bar Widget
-
-**Description:** Progress bar or level indicator.
-
-**LVGL Component:** `lv_bar`
-
-**Implementation Concept:**
-- Horizontal or vertical bar
-- Read-only progress indicator
-- MQTT subscription for value updates
-- Good for battery levels, download progress
-
-**MQTT Data Format:**
-- **Subscribes to:** `mqtt_topic`
-- **Expected payload:** Numeric value (e.g., `"75"` for 75%)
-- **Does not publish** (read-only indicator)
-
-**JSON Example:**
-```json
-{
-  "type": "bar",
-  "id": "battery_level",
-  "x": 50,
-  "y": 50,
-  "w": 200,
-  "h": 20,
-  "properties": {
-    "min": 0,
-    "max": 100,
-    "value": 75,
-    "mqtt_topic": "device/battery",
-    "orientation": "horizontal",
-    "color": "#4CAF50"
-  }
-}
-```
-
----
-
-### 9. Dropdown Widget
-
-**Description:** Dropdown selection list.
-
-**LVGL Component:** `lv_dropdown`
-
-**Implementation Concept:**
-- Multiple choice selection
-- MQTT publish on selection change
-- MQTT subscribe to set selection
-- String-based options list
-
-**MQTT Data Format:**
-- **Publishes to:** `mqtt_topic` (selected option string)
-- **Subscribes to:** `mqtt_topic` (option string or index)
-- **Payload examples:** `"Heat"` or `"1"` (index-based)
-- **Published example:** `"Cool"` (when user selects Cool mode)
-
-**JSON Example:**
-```json
-{
-  "type": "dropdown",
-  "id": "mode_selector",
-  "x": 100,
-  "y": 150,
-  "w": 180,
-  "h": 40,
-  "properties": {
-    "options": ["Auto", "Heat", "Cool", "Fan"],
-    "selected": 0,
-    "mqtt_topic": "hvac/mode",
-    "color": "#03A9F4"
-  }
-}
-```
-
----
-
-### 10. Checkbox Widget
-
-**Description:** Checkbox for boolean selection.
-
-**LVGL Component:** `lv_checkbox`
-
-**Implementation Concept:**
-- Checkbox with text label
-- MQTT bidirectional control
-- Similar to switch but with different UI
-
-**MQTT Data Format:**
-- **Publishes to:** `mqtt_topic` (`"true"` or `"false"`)
-- **Subscribes to:** `mqtt_topic`
-- **Expected payload:** `"true"`, `"false"`, `"1"`, `"0"`, `"checked"`, `"unchecked"`
-
-**JSON Example:**
-```json
-{
-  "type": "checkbox",
-  "id": "notifications",
-  "x": 50,
-  "y": 200,
-  "w": 200,
-  "h": 30,
-  "properties": {
-    "text": "Enable Notifications",
-    "checked": true,
-    "mqtt_topic": "settings/notifications",
-    "color": "#2196F3"
-  }
-}
-```
-
----
-
-### 11. Textarea Widget
+### 14. Textarea Widget
 
 **Description:** Multi-line text input field.
 
@@ -463,7 +560,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 12. Roller Widget
+### 15. Roller Widget
 
 **Description:** Scrollable roller for value selection (like iOS picker).
 
@@ -500,7 +597,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 13. Image Widget
+### 16. Image Widget
 
 **Description:** Display static or dynamic images.
 
@@ -538,80 +635,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 14. Spinner Widget
-
-**Description:** Loading/activity spinner.
-
-**LVGL Component:** `lv_spinner`
-
-**Implementation Concept:**
-- Animated spinner for loading states
-- MQTT control for show/hide
-- Configurable speed and arc length
-
-**MQTT Data Format:**
-- **Subscribes to:** `mqtt_topic`
-- **Expected payload:** `"show"`, `"hide"`, `"1"`, `"0"`, `"true"`, `"false"`
-- **Does not publish**
-
-**JSON Example:**
-```json
-{
-  "type": "spinner",
-  "id": "loading_indicator",
-  "x": 200,
-  "y": 200,
-  "w": 50,
-  "h": 50,
-  "properties": {
-    "speed": 1000,
-    "arc_length": 60,
-    "mqtt_topic": "ui/loading",
-    "color": "#2196F3"
-  }
-}
-```
-
----
-
-### 15. LED Widget
-
-**Description:** Simple LED indicator (on/off/color).
-
-**LVGL Component:** `lv_led`
-
-**Implementation Concept:**
-- Simple circular LED indicator
-- MQTT control for on/off/brightness
-- Color changes based on state
-
-**MQTT Data Format:**
-- **Subscribes to:** `mqtt_topic`
-- **Expected payload:** `"ON"`, `"OFF"`, or brightness `"0-255"`
-- **Example:** `"255"` (full brightness), `"0"` (off), `"128"` (50% brightness)
-- **Does not publish**
-
-**JSON Example:**
-```json
-{
-  "type": "led",
-  "id": "status_led",
-  "x": 50,
-  "y": 50,
-  "w": 30,
-  "h": 30,
-  "properties": {
-    "brightness": 255,
-    "mqtt_topic": "device/status",
-    "color_on": "#00FF00",
-    "color_off": "#808080"
-  }
-}
-```
-
----
-
-### 16. Meter Widget
+### 17. Meter Widget
 
 **Description:** Analog-style meter/gauge with scale and needle.
 
@@ -650,7 +674,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 17. Keyboard Widget
+### 18. Keyboard Widget
 
 **Description:** On-screen keyboard for text input.
 
@@ -852,6 +876,45 @@ The following widgets could be implemented based on LVGL components:
 - **Expected payload:** Integer value within min/max range (e.g., `"150"`)
 - **Trigger:** On value change (user interaction or MQTT message)
 - **Feedback prevention:** Won't republish when receiving own messages
+
+**Arc Widget:**
+- **Publishes to:** `mqtt_topic`
+- **Payload sent:** Numeric value as string (e.g., `"75"`)
+- **Subscribes to:** `mqtt_topic` (auto-subscribes for bidirectional control)
+- **Expected payload:** Integer value within min/max range (e.g., `"50"`)
+- **Trigger:** On value change (user interaction or MQTT message)
+- **Feedback prevention:** Won't republish when receiving own messages
+
+**Dropdown Widget:**
+- **Publishes to:** `mqtt_topic`
+- **Payload sent:** Selected option string (e.g., `"Heat"`, `"Cool"`)
+- **Subscribes to:** `mqtt_topic` (auto-subscribes for bidirectional control)
+- **Expected payload:** Option string matching one in options list (e.g., `"Auto"`) or numeric index (e.g., `"0"`)
+- **Trigger:** On selection change (user interaction or MQTT message)
+- **Feedback prevention:** Won't republish when receiving own messages
+
+**Checkbox Widget:**
+- **Publishes to:** `mqtt_topic`
+- **Payload sent:** `"true"` or `"false"` (string)
+- **Subscribes to:** `mqtt_topic` (auto-subscribes for bidirectional control)
+- **Expected payload:** `"true"`, `"false"`, `"1"`, `"0"`, `"checked"`, `"unchecked"` (case-insensitive)
+- **Trigger:** On state change (user interaction or MQTT message)
+- **Feedback prevention:** Won't republish when receiving own messages
+
+**Bar Widget:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** Integer value within min/max range (e.g., `"75"`)
+- **Does not publish** (read-only indicator)
+
+**LED Widget:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** `"ON"`, `"OFF"`, or brightness value `"0-255"` (e.g., `"128"` for 50% brightness)
+- **Does not publish** (status indicator only)
+
+**Spinner Widget:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** `"show"`, `"hide"`, `"1"`, `"0"`, `"true"`, `"false"` (case-insensitive)
+- **Does not publish** (UI indicator only)
 
 **Container Widget:**
 - **Does not use MQTT** (layout only)

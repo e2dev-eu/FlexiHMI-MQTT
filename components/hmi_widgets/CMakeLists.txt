@@ -7,6 +7,12 @@ idf_component_register(
         "container_widget.cpp"
         "switch_widget.cpp"
         "slider_widget.cpp"
+        "arc_widget.cpp"
+        "dropdown_widget.cpp"
+        "checkbox_widget.cpp"
+        "bar_widget.cpp"
+        "led_widget.cpp"
+        "spinner_widget.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES

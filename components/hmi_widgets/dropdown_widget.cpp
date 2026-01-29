@@ -1,0 +1,167 @@
+#include "dropdown_widget.h"
+#include "mqtt_manager.h"
+#include <esp_log.h>
+#include <cstdlib>
+
+static const char *TAG = "DropdownWidget";
+
+bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+    m_id = id;
+    m_selected = 0;
+    m_retained = true;
+    
+    // Extract properties
+    if (properties) {
+        cJSON* options_item = cJSON_GetObjectItem(properties, "options");
+        if (options_item && cJSON_IsArray(options_item)) {
+            int count = cJSON_GetArraySize(options_item);
+            for (int i = 0; i < count; i++) {
+                cJSON* opt = cJSON_GetArrayItem(options_item, i);
+                if (opt && cJSON_IsString(opt)) {
+                    m_options.push_back(opt->valuestring);
+                }
+            }
+        }
+        
+        cJSON* selected_item = cJSON_GetObjectItem(properties, "selected");
+        if (selected_item && cJSON_IsNumber(selected_item)) {
+            m_selected = selected_item->valueint;
+        }
+        
+        cJSON* mqtt_topic = cJSON_GetObjectItem(properties, "mqtt_topic");
+        if (mqtt_topic && cJSON_IsString(mqtt_topic)) {
+            m_mqtt_topic = mqtt_topic->valuestring;
+        }
+        
+        cJSON* retained_item = cJSON_GetObjectItem(properties, "retained");
+        if (retained_item && cJSON_IsBool(retained_item)) {
+            m_retained = cJSON_IsTrue(retained_item);
+        }
+        
+        cJSON* color_item = cJSON_GetObjectItem(properties, "color");
+        if (color_item && cJSON_IsString(color_item)) {
+            const char* color_str = color_item->valuestring;
+            if (color_str[0] == '#') {
+                uint32_t color = strtol(color_str + 1, NULL, 16);
+                m_color = lv_color_hex(color);
+                m_has_color = true;
+            }
+        }
+    }
+    
+    // Create dropdown object
+    lv_obj_t* parent_obj = parent ? parent : lv_screen_active();
+    m_lvgl_obj = lv_dropdown_create(parent_obj);
+    if (!m_lvgl_obj) {
+        ESP_LOGE(TAG, "Failed to create dropdown widget: %s", id.c_str());
+        return false;
+    }
+    
+    lv_obj_set_pos(m_lvgl_obj, x, y);
+    lv_obj_set_width(m_lvgl_obj, w);
+    
+    // Build options string (newline-separated)
+    std::string options_str;
+    for (size_t i = 0; i < m_options.size(); i++) {
+        if (i > 0) options_str += "\n";
+        options_str += m_options[i];
+    }
+    
+    if (!options_str.empty()) {
+        lv_dropdown_set_options(m_lvgl_obj, options_str.c_str());
+    }
+    
+    lv_dropdown_set_selected(m_lvgl_obj, m_selected);
+    
+    // Apply custom color if specified
+    if (m_has_color) {
+        lv_obj_set_style_bg_color(m_lvgl_obj, m_color, LV_PART_MAIN);
+    }
+    
+    // Add event callback
+    lv_obj_add_event_cb(m_lvgl_obj, dropdown_event_cb, LV_EVENT_VALUE_CHANGED, this);
+    
+    // Subscribe to mqtt_topic to receive external updates
+    if (!m_mqtt_topic.empty()) {
+        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
+            [this](const std::string& topic, const std::string& payload) {
+                this->onMqttMessage(topic, payload);
+            });
+        ESP_LOGI(TAG, "Dropdown %s subscribed to %s for external updates", id.c_str(), m_mqtt_topic.c_str());
+    }
+    
+    ESP_LOGI(TAG, "Created dropdown widget: %s at (%d,%d) with %d options", 
+             id.c_str(), x, y, m_options.size());
+    
+    return true;
+}
+
+void DropdownWidget::destroy() {
+    if (m_lvgl_obj) {
+        lv_obj_delete(m_lvgl_obj);
+        m_lvgl_obj = nullptr;
+        ESP_LOGI(TAG, "Destroyed dropdown widget: %s", m_id.c_str());
+    }
+}
+
+void DropdownWidget::dropdown_event_cb(lv_event_t* e) {
+    DropdownWidget* widget = static_cast<DropdownWidget*>(lv_event_get_user_data(e));
+    if (!widget || widget->m_updating_from_mqtt) {
+        return;
+    }
+    
+    lv_obj_t* dd = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    uint16_t new_selected = lv_dropdown_get_selected(dd);
+    
+    if (new_selected != widget->m_selected) {
+        widget->m_selected = new_selected;
+        
+        if (!widget->m_mqtt_topic.empty() && new_selected < widget->m_options.size()) {
+            const char* payload = widget->m_options[new_selected].c_str();
+            MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
+            ESP_LOGI(TAG, "Dropdown %s changed to %s, published to %s (retained=%d)", 
+                     widget->m_id.c_str(), payload, widget->m_mqtt_topic.c_str(), widget->m_retained);
+        }
+    }
+}
+
+void DropdownWidget::onMqttMessage(const std::string& topic, const std::string& payload) {
+    uint16_t new_selected = m_selected;
+    
+    // Try to parse as index first
+    int index = atoi(payload.c_str());
+    if (index >= 0 && index < (int)m_options.size()) {
+        new_selected = index;
+    } else {
+        // Try to find matching option string
+        for (size_t i = 0; i < m_options.size(); i++) {
+            if (m_options[i] == payload) {
+                new_selected = i;
+                break;
+            }
+        }
+    }
+    
+    if (new_selected != m_selected) {
+        AsyncUpdateData* data = new AsyncUpdateData{this, new_selected};
+        lv_async_call(async_update_cb, data);
+    }
+}
+
+void DropdownWidget::async_update_cb(void* user_data) {
+    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
+    if (data && data->widget) {
+        data->widget->updateSelection(data->selected);
+    }
+    delete data;
+}
+
+void DropdownWidget::updateSelection(uint16_t selected) {
+    if (m_lvgl_obj && lv_obj_is_valid(m_lvgl_obj)) {
+        m_updating_from_mqtt = true;
+        m_selected = selected;
+        lv_dropdown_set_selected(m_lvgl_obj, m_selected);
+        m_updating_from_mqtt = false;
+        ESP_LOGI(TAG, "Updated dropdown %s to index: %d", m_id.c_str(), m_selected);
+    }
+}

@@ -24,8 +24,8 @@ bool MQTTManager::init(const std::string& broker_uri, const std::string& client_
     
     esp_mqtt_client_config_t mqtt_cfg = {};
     mqtt_cfg.broker.address.uri = broker_uri.c_str();
-    mqtt_cfg.buffer.size = 8192;  // Increase buffer size for large JSON configs
-    mqtt_cfg.buffer.out_size = 2048;
+    mqtt_cfg.buffer.size = 512*1024;  // 512KB buffer for large JSON configs with chunking support
+    mqtt_cfg.buffer.out_size = 8192;
     
     if (!client_id.empty()) {
         mqtt_cfg.credentials.client_id = client_id.c_str();
@@ -62,8 +62,8 @@ bool MQTTManager::init(const std::string& broker_uri, const std::string& usernam
     mqtt_cfg.broker.address.uri = broker_uri.c_str();
     mqtt_cfg.credentials.username = username.c_str();
     mqtt_cfg.credentials.authentication.password = password.c_str();
-    mqtt_cfg.buffer.size = 8192;  // Increase buffer size for large JSON configs
-    mqtt_cfg.buffer.out_size = 2048;
+    mqtt_cfg.buffer.size = 1024*1024;  // 1MB buffer for large JSON configs with chunking support
+    mqtt_cfg.buffer.out_size = 8192;
     
     if (!client_id.empty()) {
         mqtt_cfg.credentials.client_id = client_id.c_str();
@@ -208,15 +208,45 @@ void MQTTManager::handleDisconnected() {
 
 void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
     std::string topic(event->topic, event->topic_len);
-    std::string payload(event->data, event->data_len);
     
-    ESP_LOGD(TAG, "Received on %s: %s", topic.c_str(), payload.c_str());
-    
-    // Find matching subscriber
-    auto it = m_subscribers.find(topic);
-    if (it != m_subscribers.end()) {
-        it->second(topic, payload);
+    // Handle chunked messages
+    if (event->total_data_len > event->data_len) {
+        // Multi-chunk message
+        ESP_LOGI(TAG, "Chunked message on %s: offset=%d, chunk_len=%d, total=%d",
+                 topic.c_str(), event->current_data_offset, event->data_len, event->total_data_len);
+        
+        // Initialize buffer on first chunk
+        if (event->current_data_offset == 0) {
+            m_chunk_buffer.clear();
+            m_chunk_buffer.reserve(event->total_data_len);
+        }
+        
+        // Accumulate chunk
+        m_chunk_buffer.append(event->data, event->data_len);
+        
+        // Check if we have all chunks
+        if (m_chunk_buffer.size() >= static_cast<size_t>(event->total_data_len)) {
+            ESP_LOGI(TAG, "Complete message received on %s: %d bytes", topic.c_str(), m_chunk_buffer.size());
+            
+            // Find matching subscriber and deliver complete message
+            auto it = m_subscribers.find(topic);
+            if (it != m_subscribers.end()) {
+                it->second(topic, m_chunk_buffer);
+            }
+            
+            m_chunk_buffer.clear();
+        }
     } else {
-        ESP_LOGW(TAG, "No subscriber for topic: %s", topic.c_str());
+        // Single chunk message
+        std::string payload(event->data, event->data_len);
+        ESP_LOGD(TAG, "Received on %s: %d bytes", topic.c_str(), payload.size());
+        
+        // Find matching subscriber
+        auto it = m_subscribers.find(topic);
+        if (it != m_subscribers.end()) {
+            it->second(topic, payload);
+        } else {
+            ESP_LOGW(TAG, "No subscriber for topic: %s", topic.c_str());
+        }
     }
 }

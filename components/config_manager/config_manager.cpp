@@ -5,6 +5,12 @@
 #include "container_widget.h"
 #include "switch_widget.h"
 #include "slider_widget.h"
+#include "bar_widget.h"
+#include "arc_widget.h"
+#include "checkbox_widget.h"
+#include "dropdown_widget.h"
+#include "led_widget.h"
+#include "spinner_widget.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -169,6 +175,18 @@ HMIWidget* ConfigManager::createWidgetByType(const std::string& type) {
         return new SwitchWidget();
     } else if (type == "slider") {
         return new SliderWidget();
+    } else if (type == "bar") {
+        return new BarWidget();
+    } else if (type == "arc") {
+        return new ArcWidget();
+    } else if (type == "checkbox") {
+        return new CheckboxWidget();
+    } else if (type == "dropdown") {
+        return new DropdownWidget();
+    } else if (type == "led") {
+        return new LEDWidget();
+    } else if (type == "spinner") {
+        return new SpinnerWidget();
     }
     
     ESP_LOGE(TAG, "Unknown widget type: %s", type.c_str());
@@ -219,36 +237,26 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     std::string id = id_item->valuestring;
     ESP_LOGI(TAG, "Widget id: %s", id.c_str());
     
-    // Extract geometry
-    cJSON* geometry = cJSON_GetObjectItem(widget_json, "geometry");
-    if (!geometry) {
-        ESP_LOGE(TAG, "Missing 'geometry' field for widget '%s'", id.c_str());
-        return false;
-    }
-    if (!cJSON_IsObject(geometry)) {
-        ESP_LOGE(TAG, "'geometry' field is not an object (type: %d)", geometry->type);
-        return false;
-    }
-    
-    cJSON* x_item = cJSON_GetObjectItem(geometry, "x");
-    cJSON* y_item = cJSON_GetObjectItem(geometry, "y");
-    cJSON* w_item = cJSON_GetObjectItem(geometry, "width");
-    cJSON* h_item = cJSON_GetObjectItem(geometry, "height");
+    // Extract position and size (directly from widget object)
+    cJSON* x_item = cJSON_GetObjectItem(widget_json, "x");
+    cJSON* y_item = cJSON_GetObjectItem(widget_json, "y");
+    cJSON* w_item = cJSON_GetObjectItem(widget_json, "w");
+    cJSON* h_item = cJSON_GetObjectItem(widget_json, "h");
     
     if (!x_item || !cJSON_IsNumber(x_item)) {
-        ESP_LOGE(TAG, "Missing or invalid 'x' in geometry");
+        ESP_LOGE(TAG, "Missing or invalid 'x' for widget '%s'", id.c_str());
         return false;
     }
     if (!y_item || !cJSON_IsNumber(y_item)) {
-        ESP_LOGE(TAG, "Missing or invalid 'y' in geometry");
+        ESP_LOGE(TAG, "Missing or invalid 'y' for widget '%s'", id.c_str());
         return false;
     }
     if (!w_item || !cJSON_IsNumber(w_item)) {
-        ESP_LOGE(TAG, "Missing or invalid 'width' in geometry");
+        ESP_LOGE(TAG, "Missing or invalid 'w' for widget '%s'", id.c_str());
         return false;
     }
     if (!h_item || !cJSON_IsNumber(h_item)) {
-        ESP_LOGE(TAG, "Missing or invalid 'height' in geometry");
+        ESP_LOGE(TAG, "Missing or invalid 'h' for widget '%s'", id.c_str());
         return false;
     }
     

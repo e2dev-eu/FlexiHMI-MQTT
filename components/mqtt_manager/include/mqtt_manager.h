@@ -50,4 +50,5 @@ private:
     bool m_connected;
     std::map<std::string, MessageCallback> m_subscribers;
     std::map<std::string, int> m_qos_map; // Store QoS for each topic
+    std::string m_chunk_buffer; // Buffer for accumulating chunked messages
 };
