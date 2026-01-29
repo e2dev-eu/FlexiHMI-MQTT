@@ -11,6 +11,7 @@
 #include "dropdown_widget.h"
 #include "led_widget.h"
 #include "spinner_widget.h"
+#include "tabview_widget.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -20,6 +21,9 @@ extern "C" {
     void settings_ui_bring_to_front();
     void status_info_bring_to_front();
 }
+
+// Forward declare for dynamic_cast
+class TabviewWidget;
 
 static const char* TAG = "ConfigManager";
 static const char* NVS_NAMESPACE = "hmi_config";
@@ -187,6 +191,8 @@ HMIWidget* ConfigManager::createWidgetByType(const std::string& type) {
         return new LEDWidget();
     } else if (type == "spinner") {
         return new SpinnerWidget();
+    } else if (type == "tabview") {
+        return new TabviewWidget();
     }
     
     ESP_LOGE(TAG, "Unknown widget type: %s", type.c_str());
@@ -298,15 +304,35 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     
     // Process children if present
     cJSON* children = cJSON_GetObjectItem(widget_json, "children");
-    if (children && cJSON_IsArray(children)) {
-        int child_count = cJSON_GetArraySize(children);
-        ESP_LOGI(TAG, "Widget '%s' has %d children, parsing recursively...", id.c_str(), child_count);
-        lv_obj_t* parent_obj = widget->getLvglObject();
-        if (parent_obj && lv_obj_is_valid(parent_obj)) {
-            ESP_LOGI(TAG, "Parent LVGL object is valid, creating children");
-            parseWidgets(children, parent_obj);
-        } else {
-            ESP_LOGE(TAG, "Widget '%s' has invalid LVGL object, cannot create children", id.c_str());
+    if (children) {
+        // Check if this is a tabview with per-tab children (object format)
+        if (type == "tabview" && cJSON_IsObject(children)) {
+            // Safe cast since we know type is "tabview"
+            TabviewWidget* tabview = static_cast<TabviewWidget*>(widget);
+            // Iterate through each tab name and parse its children
+            for (const auto& tab_name : tabview->getTabNames()) {
+                cJSON* tab_children = cJSON_GetObjectItem(children, tab_name.c_str());
+                if (tab_children && cJSON_IsArray(tab_children)) {
+                    lv_obj_t* tab_obj = tabview->getTabByName(tab_name);
+                    if (tab_obj && lv_obj_is_valid(tab_obj)) {
+                        ESP_LOGI(TAG, "Parsing %d children for tab '%s'", 
+                                 cJSON_GetArraySize(tab_children), tab_name.c_str());
+                        parseWidgets(tab_children, tab_obj);
+                    }
+                }
+            }
+        }
+        // Standard array-based children for containers and other widgets
+        else if (cJSON_IsArray(children)) {
+            int child_count = cJSON_GetArraySize(children);
+            ESP_LOGI(TAG, "Widget '%s' has %d children, parsing recursively...", id.c_str(), child_count);
+            lv_obj_t* parent_obj = widget->getLvglObject();
+            if (parent_obj && lv_obj_is_valid(parent_obj)) {
+                ESP_LOGI(TAG, "Parent LVGL object is valid, creating children");
+                parseWidgets(children, parent_obj);
+            } else {
+                ESP_LOGE(TAG, "Widget '%s' has invalid LVGL object, cannot create children", id.c_str());
+            }
         }
     }
     

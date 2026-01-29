@@ -1,0 +1,556 @@
+{
+  "version": "2.0",
+  "description": "Tabview widget demonstration with three tabs containing widgets",
+  "widgets": [
+    {
+      "type": "tabview",
+      "id": "main_tabs",
+      "x": 0,
+      "y": 0,
+      "w": 1024,
+      "h": 600,
+      "properties": {
+        "tabs": ["Controls", "Status", "RGB Lighting"],
+        "active_tab": 0,
+        "mqtt_topic": "demo/active_tab",
+        "retained": true
+      },
+      "children": {
+        "Controls": [
+          {
+            "type": "label",
+            "id": "controls_title",
+            "x": 20,
+            "y": 10,
+            "w": 400,
+            "h": 40,
+            "properties": {
+              "text": "CONTROL PANEL",
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "master_power",
+            "x": 20,
+            "y": 60,
+            "w": 60,
+            "h": 30,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/power",
+              "retained": true,
+              "color": "#3FB950"
+            }
+          },
+          {
+            "type": "label",
+            "id": "power_label",
+            "x": 90,
+            "y": 65,
+            "w": 200,
+            "h": 25,
+            "properties": {
+              "text": "Master Power",
+              "color": "#C9D1D9"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "volume",
+            "x": 20,
+            "y": 120,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "label": "Volume",
+              "min": 0,
+              "max": 100,
+              "value": 50,
+              "mqtt_topic": "demo/volume",
+              "retained": true,
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "arc",
+            "id": "brightness_arc",
+            "x": 520,
+            "y": 50,
+            "w": 180,
+            "h": 180,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 75,
+              "mqtt_topic": "demo/brightness",
+              "retained": true,
+              "color": "#F0883E"
+            }
+          },
+          {
+            "type": "dropdown",
+            "id": "mode_selector",
+            "x": 20,
+            "y": 210,
+            "w": 300,
+            "h": 40,
+            "properties": {
+              "options": ["Auto", "Manual", "Schedule", "Off"],
+              "selected": 0,
+              "mqtt_topic": "demo/mode",
+              "retained": true,
+              "color": "#8957E5"
+            }
+          },
+          {
+            "type": "checkbox",
+            "id": "notifications",
+            "x": 20,
+            "y": 270,
+            "w": 300,
+            "h": 35,
+            "properties": {
+              "text": "Enable Notifications",
+              "checked": true,
+              "mqtt_topic": "demo/notifications",
+              "retained": true,
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "checkbox",
+            "id": "auto_update",
+            "x": 20,
+            "y": 315,
+            "w": 300,
+            "h": 35,
+            "properties": {
+              "text": "Auto Update",
+              "checked": false,
+              "mqtt_topic": "demo/auto_update",
+              "retained": true,
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "button",
+            "id": "apply_settings",
+            "x": 20,
+            "y": 380,
+            "w": 200,
+            "h": 60,
+            "properties": {
+              "text": "Apply Settings",
+              "publish_topic": "demo/apply",
+              "publish_payload": "APPLY",
+              "color": "#238636"
+            }
+          }
+        ],
+        "Status": [
+          {
+            "type": "label",
+            "id": "status_title",
+            "x": 20,
+            "y": 10,
+            "w": 400,
+            "h": 40,
+            "properties": {
+              "text": "SYSTEM STATUS",
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "label",
+            "id": "cpu_label",
+            "x": 20,
+            "y": 60,
+            "w": 300,
+            "h": 25,
+            "properties": {
+              "text": "CPU Usage",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "cpu_usage",
+            "x": 20,
+            "y": 90,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 45,
+              "mqtt_topic": "demo/cpu",
+              "color": "#3FB950"
+            }
+          },
+          {
+            "type": "label",
+            "id": "memory_label",
+            "x": 20,
+            "y": 140,
+            "w": 300,
+            "h": 25,
+            "properties": {
+              "text": "Memory Usage",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "memory_usage",
+            "x": 20,
+            "y": 170,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 67,
+              "mqtt_topic": "demo/memory",
+              "color": "#F0883E"
+            }
+          },
+          {
+            "type": "label",
+            "id": "disk_label",
+            "x": 20,
+            "y": 220,
+            "w": 300,
+            "h": 25,
+            "properties": {
+              "text": "Disk Usage",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "disk_usage",
+            "x": 20,
+            "y": 250,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 82,
+              "mqtt_topic": "demo/disk",
+              "color": "#DA3633"
+            }
+          },
+          {
+            "type": "label",
+            "id": "temperature",
+            "x": 520,
+            "y": 60,
+            "w": 250,
+            "h": 30,
+            "properties": {
+              "text": "Temperature: --",
+              "format": "Temp: %.1f°C",
+              "mqtt_topic": "demo/temperature",
+              "color": "#F0883E"
+            }
+          },
+          {
+            "type": "label",
+            "id": "humidity",
+            "x": 520,
+            "y": 100,
+            "w": 250,
+            "h": 30,
+            "properties": {
+              "text": "Humidity: --",
+              "format": "Humidity: %.0f%%",
+              "mqtt_topic": "demo/humidity",
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "label",
+            "id": "led_status_label",
+            "x": 20,
+            "y": 310,
+            "w": 200,
+            "h": 30,
+            "properties": {
+              "text": "System Status:",
+              "color": "#C9D1D9"
+            }
+          },
+          {
+            "type": "led",
+            "id": "status_led_1",
+            "x": 30,
+            "y": 350,
+            "w": 30,
+            "h": 30,
+            "properties": {
+              "brightness": 255,
+              "mqtt_topic": "demo/led1",
+              "color_on": "#3FB950",
+              "color_off": "#484F58"
+            }
+          },
+          {
+            "type": "label",
+            "id": "led1_label",
+            "x": 70,
+            "y": 355,
+            "w": 150,
+            "h": 25,
+            "properties": {
+              "text": "Network",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "led",
+            "id": "status_led_2",
+            "x": 230,
+            "y": 350,
+            "w": 30,
+            "h": 30,
+            "properties": {
+              "brightness": 128,
+              "mqtt_topic": "demo/led2",
+              "color_on": "#58A6FF",
+              "color_off": "#484F58"
+            }
+          },
+          {
+            "type": "label",
+            "id": "led2_label",
+            "x": 270,
+            "y": 355,
+            "w": 150,
+            "h": 25,
+            "properties": {
+              "text": "MQTT",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "led",
+            "id": "status_led_3",
+            "x": 430,
+            "y": 350,
+            "w": 30,
+            "h": 30,
+            "properties": {
+              "brightness": 0,
+              "mqtt_topic": "demo/led3",
+              "color_on": "#F0883E",
+              "color_off": "#484F58"
+            }
+          },
+          {
+            "type": "label",
+            "id": "led3_label",
+            "x": 470,
+            "y": 355,
+            "w": 150,
+            "h": 25,
+            "properties": {
+              "text": "Storage",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "spinner",
+            "id": "loading_spinner",
+            "x": 700,
+            "y": 330,
+            "w": 60,
+            "h": 60,
+            "properties": {
+              "mqtt_topic": "demo/loading",
+              "color": "#58A6FF"
+            }
+          }
+        ],
+        "RGB Lighting": [
+          {
+            "type": "label",
+            "id": "rgb_title",
+            "x": 20,
+            "y": 10,
+            "w": 400,
+            "h": 40,
+            "properties": {
+              "text": "RGB LIGHTING CONTROL",
+              "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "rgb_power",
+            "x": 20,
+            "y": 60,
+            "w": 60,
+            "h": 30,
+            "properties": {
+              "state": true,
+              "mqtt_topic": "demo/rgb/power",
+              "retained": true,
+              "color": "#DA3633"
+            }
+          },
+          {
+            "type": "label",
+            "id": "rgb_power_label",
+            "x": 90,
+            "y": 65,
+            "w": 200,
+            "h": 25,
+            "properties": {
+              "text": "RGB Power",
+              "color": "#C9D1D9"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "red_slider",
+            "x": 20,
+            "y": 120,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "label": "Red",
+              "min": 0,
+              "max": 255,
+              "value": 255,
+              "mqtt_topic": "demo/rgb/red",
+              "retained": true,
+              "color": "#FF0000"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "green_slider",
+            "x": 20,
+            "y": 195,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "label": "Green",
+              "min": 0,
+              "max": 255,
+              "value": 128,
+              "mqtt_topic": "demo/rgb/green",
+              "retained": true,
+              "color": "#00FF00"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "blue_slider",
+            "x": 20,
+            "y": 270,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "label": "Blue",
+              "min": 0,
+              "max": 255,
+              "value": 64,
+              "mqtt_topic": "demo/rgb/blue",
+              "retained": true,
+              "color": "#0000FF"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "white_slider",
+            "x": 20,
+            "y": 345,
+            "w": 450,
+            "h": 30,
+            "properties": {
+              "label": "White",
+              "min": 0,
+              "max": 255,
+              "value": 0,
+              "mqtt_topic": "demo/rgb/white",
+              "retained": true,
+              "color": "#FFFFFF"
+            }
+          },
+          {
+            "type": "label",
+            "id": "effect_label",
+            "x": 520,
+            "y": 60,
+            "w": 200,
+            "h": 25,
+            "properties": {
+              "text": "Light Effect:",
+              "color": "#8B949E"
+            }
+          },
+          {
+            "type": "dropdown",
+            "id": "rgb_effect",
+            "x": 520,
+            "y": 90,
+            "w": 250,
+            "h": 40,
+            "properties": {
+              "options": ["Solid", "Fade", "Strobe", "Rainbow", "Chase"],
+              "selected": 0,
+              "mqtt_topic": "demo/rgb/effect",
+              "retained": true,
+              "color": "#8957E5"
+            }
+          },
+          {
+            "type": "button",
+            "id": "save_scene",
+            "x": 520,
+            "y": 160,
+            "w": 115,
+            "h": 50,
+            "properties": {
+              "text": "Save Scene",
+              "publish_topic": "demo/rgb/scene",
+              "publish_payload": "SAVE",
+              "color": "#238636"
+            }
+          },
+          {
+            "type": "button",
+            "id": "load_scene",
+            "x": 645,
+            "y": 160,
+            "w": 125,
+            "h": 50,
+            "properties": {
+              "text": "Load Scene",
+              "publish_topic": "demo/rgb/scene",
+              "publish_payload": "LOAD",
+              "color": "#1F6FEB"
+            }
+          },
+          {
+            "type": "button",
+            "id": "reset_rgb",
+            "x": 520,
+            "y": 220,
+            "w": 250,
+            "h": 50,
+            "properties": {
+              "text": "Reset to Default",
+              "publish_topic": "demo/rgb/reset",
+              "publish_payload": "RESET",
+              "color": "#DA3633"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

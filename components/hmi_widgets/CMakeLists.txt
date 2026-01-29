@@ -13,6 +13,7 @@ idf_component_register(
         "bar_widget.cpp"
         "led_widget.cpp"
         "spinner_widget.cpp"
+        "tabview_widget.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES

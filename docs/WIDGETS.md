@@ -1,6 +1,6 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 11 currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 12 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
 - **MQTT Buffer:** 32KB with automatic chunked message handling
@@ -475,13 +475,82 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 ---
 
+### 12. Tabview Widget
+
+**Description:** Tabbed interface for organizing multiple views.
+
+**LVGL Component:** `lv_tabview`
+
+**Implementation Features:**
+- Multiple tabs with content panels
+- Swipe between tabs with animation
+- Each tab can contain child widgets
+- MQTT bidirectional control for active tab
+- Feedback loop prevention
+- Tab name or index based switching
+
+**JSON Example:**
+```json
+{
+  "type": "tabview",
+  "id": "main_tabs",
+  "x": 0,
+  "y": 0,
+  "w": 1024,
+  "h": 600,
+  "properties": {
+    "tabs": ["Controls", "Status", "Settings"],
+    "active_tab": 0,
+    "mqtt_topic": "ui/active_tab",
+    "retained": true,
+    "bg_color": "#1E1E1E",
+    "tab_bg_color": "#0D1117",
+    "active_tab_color": "#58A6FF",
+    "tab_text_color": "#C9D1D9"
+  },
+  "children": {
+    "Controls": [
+      {
+        "type": "label",
+        "id": "controls_title",
+        "x": 10,
+        "y": 10,
+        "w": 300,
+        "h": 40,
+        "properties": {
+          "text": "Control Panel",
+          "color": "#FFFFFF"
+        }
+      }
+    ],
+    "Status": [],
+    "Settings": []
+  }
+}
+```
+
+**Properties:**
+- `tabs` (array): List of tab names (strings)
+- `active_tab` (number): Initial active tab index (default: 0)
+- `mqtt_topic` (string): Topic for publish/subscribe
+- `retained` (boolean, optional): Publish as retained message
+- `bg_color` (string, optional): Background color of content area in hex format
+- `tab_bg_color` (string, optional): Background color of tab bar in hex format
+- `active_tab_color` (string, optional): Color of active tab indicator in hex format
+- `tab_text_color` (string, optional): Text color of tab buttons in hex format
+- `children` (object): Object with tab names as keys, each containing array of child widgets
+
+**Note:** Child widgets in tabs use coordinates relative to the tab content area.
+
+---
+
 ## Planned Widgets
 
 The following widgets could be implemented based on LVGL components:
 
 > **Note:** MQTT data formats for planned widgets are conceptual and subject to change during implementation.
 
-### 12. Chart Widget
+### 13. Chart Widget
 
 **Description:** Line or bar chart for visualizing time-series data.
 
@@ -782,48 +851,6 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 20. Tabview Widget
-
-**Description:** Tabbed interface for organizing multiple views.
-
-**LVGL Component:** `lv_tabview`
-
-**Implementation Concept:**
-- Multiple tabs with content
-- Swipe between tabs
-- Each tab can contain child widgets
-- MQTT control for active tab
-
-**MQTT Data Format:**
-- **Publishes to:** `mqtt_topic` (active tab index or name)
-- **Subscribes to:** `mqtt_topic` (tab index or name to switch to)
-- **Payload examples:** `"0"`, `"1"`, `"2"` (index) or `"Controls"`, `"Status"` (tab name)
-- **Trigger:** On tab change (user swipe/tap or MQTT message)
-
-**JSON Example:**
-```json
-{
-  "type": "tabview",
-  "id": "main_tabs",
-  "x": 0,
-  "y": 0,
-  "w": 1024,
-  "h": 600,
-  "properties": {
-    "tabs": ["Controls", "Status", "Settings"],
-    "active_tab": 0,
-    "mqtt_topic": "ui/active_tab"
-  },
-  "children": {
-    "Controls": [],
-    "Status": [],
-    "Settings": []
-  }
-}
-```
-
----
-
 ## Widget Properties Reference
 
 ### Common Properties (All Widgets)
@@ -915,6 +942,14 @@ The following widgets could be implemented based on LVGL components:
 - **Subscribes to:** `mqtt_topic`
 - **Expected payload:** `"show"`, `"hide"`, `"1"`, `"0"`, `"true"`, `"false"` (case-insensitive)
 - **Does not publish** (UI indicator only)
+
+**Tabview Widget:**
+- **Publishes to:** `mqtt_topic`
+- **Payload sent:** Active tab name as string (e.g., `"Controls"`, `"Status"`)
+- **Subscribes to:** `mqtt_topic` (auto-subscribes for bidirectional control)
+- **Expected payload:** Tab name (e.g., `"Settings"`) or numeric index (e.g., `"2"`)
+- **Trigger:** On tab change (user swipe/tap or MQTT message)
+- **Feedback prevention:** Won't republish when receiving own messages
 
 **Container Widget:**
 - **Does not use MQTT** (layout only)
