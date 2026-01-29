@@ -142,7 +142,7 @@ void StatusInfoUI::createStatusScreen() {
     // Close button
     lv_obj_t* close_btn = lv_button_create(m_status_screen);
     lv_obj_set_size(close_btn, 120, 50);
-    lv_obj_align(close_btn, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_align(close_btn, LV_ALIGN_BOTTOM_MID, 0, 100);
     lv_obj_add_event_cb(close_btn, close_clicked_cb, LV_EVENT_CLICKED, this);
     
     lv_obj_t* close_label = lv_label_create(close_btn);
