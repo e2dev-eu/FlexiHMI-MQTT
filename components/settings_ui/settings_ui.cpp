@@ -340,10 +340,24 @@ void SettingsUI::createWifiTab(lv_obj_t* tab) {
     
     y_pos += 70;
     
-    // WiFi list (scrollable)
-    m_wifi_list = lv_list_create(tab);
+    // WiFi table (SSID, Signal dB, Security)
+    m_wifi_list = lv_table_create(tab);
     lv_obj_set_size(m_wifi_list, LV_PCT(95), 200);
     lv_obj_set_pos(m_wifi_list, 10, y_pos);
+    
+    // Set up 3 columns
+    lv_table_set_column_count(m_wifi_list, 3);
+    lv_table_set_column_width(m_wifi_list, 0, 450);  // SSID
+    lv_table_set_column_width(m_wifi_list, 1, 100);  // Signal
+    lv_table_set_column_width(m_wifi_list, 2, 130);  // Security
+    
+    // Add header row
+    lv_table_set_cell_value(m_wifi_list, 0, 0, "SSID");
+    lv_table_set_cell_value(m_wifi_list, 0, 1, "Signal (dB)");
+    lv_table_set_cell_value(m_wifi_list, 0, 2, "Security");
+    
+    // Add event callback for table cell clicks
+    lv_obj_add_event_cb(m_wifi_list, wifi_ap_clicked_cb, LV_EVENT_PRESSED, this);
     
     y_pos += 220;
     
@@ -617,27 +631,26 @@ void SettingsUI::wifi_scan_clicked_cb(lv_event_t* e) {
 
 void SettingsUI::wifi_ap_clicked_cb(lv_event_t* e) {
     SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
-    lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    lv_obj_t* table = static_cast<lv_obj_t*>(lv_event_get_target(e));
     
-    // Get SSID from button text
-    lv_obj_t* label = lv_obj_get_child(btn, 0);
-    if (label) {
-        const char* text = lv_label_get_text(label);
-        // Remove signal strength prefix (e.g., "� MyNetwork" -> "MyNetwork")
-        const char* ssid_start = strchr(text, ' ');
-        if (ssid_start) {
-            ui->m_selected_ssid = std::string(ssid_start + 1);
-            // Remove trailing WiFi symbol if present
-            size_t wifi_sym_pos = ui->m_selected_ssid.find(std::string(" ") + LV_SYMBOL_WIFI);
-            if (wifi_sym_pos != std::string::npos) {
-                ui->m_selected_ssid = ui->m_selected_ssid.substr(0, wifi_sym_pos);
-            }
-            ESP_LOGI(TAG, "Selected WiFi AP: %s", ui->m_selected_ssid.c_str());
-            
-            // Update SSID input field
-            if (ui->m_wifi_ssid_input) {
-                lv_textarea_set_text(ui->m_wifi_ssid_input, ui->m_selected_ssid.c_str());
-            }
+    // Get selected cell
+    uint32_t row, col;
+    lv_table_get_selected_cell(table, &row, &col);
+    
+    // Skip header row (0) and invalid selections
+    if (row == 0 || row == LV_TABLE_CELL_NONE) {
+        return;
+    }
+    
+    // Get SSID from column 0
+    const char* ssid = lv_table_get_cell_value(table, row, 0);
+    if (ssid && ssid[0] != '\0') {
+        ui->m_selected_ssid = std::string(ssid);
+        ESP_LOGI(TAG, "Selected WiFi AP: %s", ui->m_selected_ssid.c_str());
+        
+        // Update SSID input field
+        if (ui->m_wifi_ssid_input) {
+            lv_textarea_set_text(ui->m_wifi_ssid_input, ui->m_selected_ssid.c_str());
         }
     }
 }
@@ -891,29 +904,27 @@ void SettingsUI::performWifiScan() {
 void SettingsUI::updateWifiScanResults(const std::vector<WifiAP>& aps) {
     if (!m_wifi_list) return;
     
-    // Clear existing list
-    lv_obj_clean(m_wifi_list);
+    ESP_LOGI(TAG, "Updating WiFi table with %d APs", aps.size());
     
-    ESP_LOGI(TAG, "Updating WiFi list with %d APs", aps.size());
+    // Set row count (header + APs)
+    lv_table_set_row_count(m_wifi_list, aps.size() + 1);
     
-    for (const auto& ap : aps) {
-        // Use LVGL symbols for signal strength indicators
-        const char* signal_icon;
-        if (ap.rssi > -50) {
-            signal_icon = LV_SYMBOL_WIFI;  // Strong signal
-        } else if (ap.rssi > -70) {
-            signal_icon = LV_SYMBOL_WARNING;  // Medium signal
-        } else {
-            signal_icon = LV_SYMBOL_CLOSE;  // Weak signal
-        }
+    // Populate table rows (starting from row 1, row 0 is header)
+    for (size_t i = 0; i < aps.size(); i++) {
+        const auto& ap = aps[i];
+        uint16_t row = i + 1;
         
-        char btn_text[128];
-        snprintf(btn_text, sizeof(btn_text), "%s %s %s", 
-                 signal_icon, ap.ssid.c_str(), 
-                 ap.requires_password ? LV_SYMBOL_SETTINGS : "");
+        // Column 0: SSID
+        lv_table_set_cell_value(m_wifi_list, row, 0, ap.ssid.c_str());
         
-        lv_obj_t* btn = lv_list_add_button(m_wifi_list, nullptr, btn_text);
-        lv_obj_add_event_cb(btn, wifi_ap_clicked_cb, LV_EVENT_CLICKED, this);
+        // Column 1: Signal strength in dB
+        char signal_str[16];
+        snprintf(signal_str, sizeof(signal_str), "%d dB", ap.rssi);
+        lv_table_set_cell_value(m_wifi_list, row, 1, signal_str);
+        
+        // Column 2: Security
+        const char* security = ap.requires_password ? "Protected" : "Open";
+        lv_table_set_cell_value(m_wifi_list, row, 2, security);
     }
 }
 
