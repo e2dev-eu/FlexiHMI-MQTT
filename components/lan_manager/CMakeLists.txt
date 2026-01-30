@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS 
+        "lan_manager.cpp"
+    INCLUDE_DIRS 
+        "include"
+    REQUIRES
+        ethernet
+        esp_eth
+        esp_netif
+        esp_event
+)

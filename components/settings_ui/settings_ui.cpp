@@ -1,8 +1,12 @@
 #include "settings_ui.h"
 #include "mqtt_manager.h"
+#include "wireless_manager.h"
+#include "lan_manager.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "esp_app_desc.h"
+#include "esp_idf_version.h"
 
 static const char* TAG = "SettingsUI";
 
@@ -26,13 +30,22 @@ SettingsUI& SettingsUI::getInstance() {
 SettingsUI::SettingsUI() 
     : m_gear_icon(nullptr)
     , m_settings_screen(nullptr)
+    , m_tabview(nullptr)
+    , m_keyboard(nullptr)
     , m_broker_input(nullptr)
-    , m_port_input(nullptr)
     , m_username_input(nullptr)
     , m_password_input(nullptr)
     , m_client_id_input(nullptr)
     , m_config_topic_input(nullptr)
-    , m_keyboard(nullptr)
+    , m_lan_dhcp_switch(nullptr)
+    , m_lan_ip_input(nullptr)
+    , m_lan_netmask_input(nullptr)
+    , m_lan_gateway_input(nullptr)
+    , m_lan_status_label(nullptr)
+    , m_wifi_list(nullptr)
+    , m_wifi_ssid_input(nullptr)
+    , m_wifi_password_input(nullptr)
+    , m_wifi_status_label(nullptr)
     , m_visible(false)
     , m_broker_uri("mqtt://192.168.100.1")
     , m_config_topic("hmi/config") {
@@ -47,14 +60,15 @@ void SettingsUI::init(lv_obj_t* parent_screen) {
 }
 
 void SettingsUI::createGearIcon(lv_obj_t* parent) {
-    // Create gear button in top-right corner
+    // Create gear button in bottom-right corner
     m_gear_icon = lv_button_create(parent);
-    lv_obj_set_size(m_gear_icon, 50, 50);
-    lv_obj_align(m_gear_icon, LV_ALIGN_TOP_RIGHT, -10, 10);
+    lv_obj_set_size(m_gear_icon, 60, 60);
+    lv_obj_align(m_gear_icon, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
     
     // Add gear symbol
     lv_obj_t* label = lv_label_create(m_gear_icon);
     lv_label_set_text(label, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
     lv_obj_center(label);
     
     lv_obj_add_event_cb(m_gear_icon, gear_clicked_cb, LV_EVENT_CLICKED, this);
@@ -63,118 +77,39 @@ void SettingsUI::createGearIcon(lv_obj_t* parent) {
 }
 
 void SettingsUI::createSettingsScreen() {
-    // Create modal overlay
-    m_settings_screen = lv_obj_create(lv_screen_active());
-    lv_obj_set_size(m_settings_screen, LV_PCT(80), LV_PCT(80));
-    lv_obj_center(m_settings_screen);
-    lv_obj_set_style_bg_color(m_settings_screen, lv_color_hex(0x2C3E50), 0);
-    lv_obj_set_style_border_color(m_settings_screen, lv_color_hex(0x3498DB), 0);
-    lv_obj_set_style_border_width(m_settings_screen, 3, 0);
+    // Create tabview directly on screen (no container)
+    m_tabview = lv_tabview_create(lv_screen_active());
+    lv_obj_set_size(m_tabview, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(m_tabview, LV_ALIGN_CENTER, 0, 0);
     
-    // Title
-    lv_obj_t* title = lv_label_create(m_settings_screen);
-    lv_label_set_text(title, "MQTT Settings");
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    // Keep on top - move to foreground
+    lv_obj_move_foreground(m_tabview);
+    lv_obj_add_flag(m_tabview, LV_OBJ_FLAG_FLOATING);
     
-    int y_pos = 60;
-    int field_height = 40;
-    int field_spacing = 60;
+    // Create tabs
+    lv_obj_t* mqtt_tab = lv_tabview_add_tab(m_tabview, "MQTT");
+    lv_obj_t* lan_tab = lv_tabview_add_tab(m_tabview, "LAN");
+    lv_obj_t* wifi_tab = lv_tabview_add_tab(m_tabview, "WiFi");
+    lv_obj_t* about_tab = lv_tabview_add_tab(m_tabview, "About");
+    lv_obj_t* close_tab = lv_tabview_add_tab(m_tabview, "Close");
+    (void)close_tab;  // Intentionally empty tab
     
-    // Broker URI
-    lv_obj_t* broker_label = lv_label_create(m_settings_screen);
-    lv_label_set_text(broker_label, "Broker URI:");
-    lv_obj_align(broker_label, LV_ALIGN_TOP_LEFT, 20, y_pos);
+    // Populate tabs
+    createMqttTab(mqtt_tab);
+    createLanTab(lan_tab);
+    createWifiTab(wifi_tab);
+    createAboutTab(about_tab);
     
-    m_broker_input = lv_textarea_create(m_settings_screen);
-    lv_obj_set_size(m_broker_input, LV_PCT(70), field_height);
-    lv_obj_align(m_broker_input, LV_ALIGN_TOP_RIGHT, -20, y_pos);
-    lv_textarea_set_one_line(m_broker_input, true);
-    lv_textarea_set_text(m_broker_input, m_broker_uri.c_str());
-    lv_obj_add_event_cb(m_broker_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    // Add event callback to tabview for tab changes
+    lv_obj_add_event_cb(m_tabview, tab_changed_cb, LV_EVENT_VALUE_CHANGED, this);
     
-    y_pos += field_spacing;
-    
-    // Username
-    lv_obj_t* username_label = lv_label_create(m_settings_screen);
-    lv_label_set_text(username_label, "Username:");
-    lv_obj_align(username_label, LV_ALIGN_TOP_LEFT, 20, y_pos);
-    
-    m_username_input = lv_textarea_create(m_settings_screen);
-    lv_obj_set_size(m_username_input, LV_PCT(70), field_height);
-    lv_obj_align(m_username_input, LV_ALIGN_TOP_RIGHT, -20, y_pos);
-    lv_textarea_set_one_line(m_username_input, true);
-    lv_textarea_set_text(m_username_input, m_username.c_str());
-    lv_obj_add_event_cb(m_username_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
-    
-    y_pos += field_spacing;
-    
-    // Password
-    lv_obj_t* password_label = lv_label_create(m_settings_screen);
-    lv_label_set_text(password_label, "Password:");
-    lv_obj_align(password_label, LV_ALIGN_TOP_LEFT, 20, y_pos);
-    
-    m_password_input = lv_textarea_create(m_settings_screen);
-    lv_obj_set_size(m_password_input, LV_PCT(70), field_height);
-    lv_obj_align(m_password_input, LV_ALIGN_TOP_RIGHT, -20, y_pos);
-    lv_textarea_set_one_line(m_password_input, true);
-    lv_textarea_set_password_mode(m_password_input, true);
-    lv_textarea_set_text(m_password_input, m_password.c_str());
-    lv_obj_add_event_cb(m_password_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
-    
-    y_pos += field_spacing;
-    
-    // Client ID
-    lv_obj_t* client_id_label = lv_label_create(m_settings_screen);
-    lv_label_set_text(client_id_label, "Client ID:");
-    lv_obj_align(client_id_label, LV_ALIGN_TOP_LEFT, 20, y_pos);
-    
-    m_client_id_input = lv_textarea_create(m_settings_screen);
-    lv_obj_set_size(m_client_id_input, LV_PCT(70), field_height);
-    lv_obj_align(m_client_id_input, LV_ALIGN_TOP_RIGHT, -20, y_pos);
-    lv_textarea_set_one_line(m_client_id_input, true);
-    lv_textarea_set_text(m_client_id_input, m_client_id.c_str());
-    lv_obj_add_event_cb(m_client_id_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
-    
-    y_pos += field_spacing;
-    
-    // Config Topic
-    lv_obj_t* topic_label = lv_label_create(m_settings_screen);
-    lv_label_set_text(topic_label, "Config Topic:");
-    lv_obj_align(topic_label, LV_ALIGN_TOP_LEFT, 20, y_pos);
-    
-    m_config_topic_input = lv_textarea_create(m_settings_screen);
-    lv_obj_set_size(m_config_topic_input, LV_PCT(70), field_height);
-    lv_obj_align(m_config_topic_input, LV_ALIGN_TOP_RIGHT, -20, y_pos);
-    lv_textarea_set_one_line(m_config_topic_input, true);
-    lv_textarea_set_text(m_config_topic_input, m_config_topic.c_str());
-    lv_obj_add_event_cb(m_config_topic_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
-    
-    // Buttons at bottom
-    lv_obj_t* save_btn = lv_button_create(m_settings_screen);
-    lv_obj_set_size(save_btn, 120, 50);
-    lv_obj_align(save_btn, LV_ALIGN_BOTTOM_LEFT, 30, -20);
-    lv_obj_add_event_cb(save_btn, button_clicked_cb, LV_EVENT_CLICKED, this);
-    lv_obj_add_event_cb(save_btn, save_clicked_cb, LV_EVENT_CLICKED, this);
-    
-    lv_obj_t* save_label = lv_label_create(save_btn);
-    lv_label_set_text(save_label, "Save");
-    lv_obj_center(save_label);
-    
-    lv_obj_t* cancel_btn = lv_button_create(m_settings_screen);
-    lv_obj_set_size(cancel_btn, 120, 50);
-    lv_obj_align(cancel_btn, LV_ALIGN_BOTTOM_RIGHT, -30, -20);
-    lv_obj_add_event_cb(cancel_btn, button_clicked_cb, LV_EVENT_CLICKED, this);
-    lv_obj_add_event_cb(cancel_btn, cancel_clicked_cb, LV_EVENT_CLICKED, this);
-    
-    lv_obj_t* cancel_label = lv_label_create(cancel_btn);
-    lv_label_set_text(cancel_label, "Cancel");
-    lv_obj_center(cancel_label);
+    // Store settings_screen as tabview for destroy operations
+    m_settings_screen = m_tabview;
     
     // Create keyboard
     createKeyboard();
     
-    ESP_LOGI(TAG, "Settings screen created");
+    ESP_LOGI(TAG, "Settings screen with tabview created");
 }
 
 void SettingsUI::destroySettingsScreen() {
@@ -183,13 +118,367 @@ void SettingsUI::destroySettingsScreen() {
         lv_obj_delete(m_settings_screen);
         m_settings_screen = nullptr;
         m_broker_input = nullptr;
-        m_port_input = nullptr;
         m_username_input = nullptr;
         m_password_input = nullptr;
         m_client_id_input = nullptr;
         m_config_topic_input = nullptr;
+        m_lan_dhcp_switch = nullptr;
+        m_lan_ip_input = nullptr;
+        m_lan_netmask_input = nullptr;
+        m_lan_gateway_input = nullptr;
+        m_lan_status_label = nullptr;
+        m_wifi_list = nullptr;
+        m_wifi_ssid_input = nullptr;
+        m_wifi_password_input = nullptr;
+        m_wifi_status_label = nullptr;
         ESP_LOGI(TAG, "Settings screen destroyed");
     }
+}
+
+void SettingsUI::createMqttTab(lv_obj_t* tab) {
+    int y_pos = 20;
+    int field_height = 40;
+    int field_spacing = 60;
+    
+    // Broker URI
+    lv_obj_t* broker_label = lv_label_create(tab);
+    lv_label_set_text(broker_label, "Broker URI:");
+    lv_obj_set_pos(broker_label, 20, y_pos);
+    
+    m_broker_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_broker_input, LV_PCT(65), field_height);
+    lv_obj_set_pos(m_broker_input, LV_PCT(35), y_pos);
+    lv_textarea_set_one_line(m_broker_input, true);
+    lv_textarea_set_text(m_broker_input, m_broker_uri.c_str());
+    lv_obj_add_event_cb(m_broker_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_broker_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += field_spacing;
+    
+    // Username
+    lv_obj_t* username_label = lv_label_create(tab);
+    lv_label_set_text(username_label, "Username:");
+    lv_obj_set_pos(username_label, 20, y_pos);
+    
+    m_username_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_username_input, LV_PCT(65), field_height);
+    lv_obj_set_pos(m_username_input, LV_PCT(35), y_pos);
+    lv_textarea_set_one_line(m_username_input, true);
+    lv_textarea_set_text(m_username_input, m_username.c_str());
+    lv_obj_add_event_cb(m_username_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_username_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += field_spacing;
+    
+    // Password
+    lv_obj_t* password_label = lv_label_create(tab);
+    lv_label_set_text(password_label, "Password:");
+    lv_obj_set_pos(password_label, 20, y_pos);
+    
+    m_password_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_password_input, LV_PCT(65), field_height);
+    lv_obj_set_pos(m_password_input, LV_PCT(35), y_pos);
+    lv_textarea_set_one_line(m_password_input, true);
+    lv_textarea_set_password_mode(m_password_input, true);
+    lv_textarea_set_text(m_password_input, m_password.c_str());
+    lv_obj_add_event_cb(m_password_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_password_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += field_spacing;
+    
+    // Client ID
+    lv_obj_t* client_id_label = lv_label_create(tab);
+    lv_label_set_text(client_id_label, "Client ID:");
+    lv_obj_set_pos(client_id_label, 20, y_pos);
+    
+    m_client_id_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_client_id_input, LV_PCT(65), field_height);
+    lv_obj_set_pos(m_client_id_input, LV_PCT(35), y_pos);
+    lv_textarea_set_one_line(m_client_id_input, true);
+    lv_textarea_set_text(m_client_id_input, m_client_id.c_str());
+    lv_obj_add_event_cb(m_client_id_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_client_id_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += field_spacing;
+    
+    // Config Topic
+    lv_obj_t* topic_label = lv_label_create(tab);
+    lv_label_set_text(topic_label, "Config Topic:");
+    lv_obj_set_pos(topic_label, 20, y_pos);
+    
+    m_config_topic_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_config_topic_input, LV_PCT(65), field_height);
+    lv_obj_set_pos(m_config_topic_input, LV_PCT(35), y_pos);
+    lv_textarea_set_one_line(m_config_topic_input, true);
+    lv_textarea_set_text(m_config_topic_input, m_config_topic.c_str());
+    lv_obj_add_event_cb(m_config_topic_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_config_topic_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += field_spacing + 20;
+    
+    // Save button
+    lv_obj_t* save_btn = lv_button_create(tab);
+    lv_obj_set_size(save_btn, 150, 50);
+    lv_obj_set_pos(save_btn, 20, y_pos);
+    lv_obj_add_event_cb(save_btn, mqtt_save_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* save_label = lv_label_create(save_btn);
+    lv_label_set_text(save_label, "Save & Apply");
+    lv_obj_center(save_label);
+    
+    ESP_LOGI(TAG, "MQTT tab created");
+}
+
+void SettingsUI::createLanTab(lv_obj_t* tab) {
+    int y_pos = 20;
+    int field_height = 40;
+    
+    // DHCP Switch
+    lv_obj_t* dhcp_label = lv_label_create(tab);
+    lv_label_set_text(dhcp_label, "DHCP:");
+    lv_obj_set_pos(dhcp_label, 20, y_pos);
+    
+    m_lan_dhcp_switch = lv_switch_create(tab);
+    lv_obj_set_pos(m_lan_dhcp_switch, 150, y_pos);
+    lv_obj_add_state(m_lan_dhcp_switch, LV_STATE_CHECKED);  // Default to DHCP
+    lv_obj_add_event_cb(m_lan_dhcp_switch, lan_dhcp_switch_cb, LV_EVENT_VALUE_CHANGED, this);
+    
+    y_pos += 60;
+    
+    // Static IP fields
+    lv_obj_t* ip_label = lv_label_create(tab);
+    lv_label_set_text(ip_label, "IP Address:");
+    lv_obj_set_pos(ip_label, 20, y_pos);
+    
+    m_lan_ip_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_lan_ip_input, LV_PCT(60), field_height);
+    lv_obj_set_pos(m_lan_ip_input, LV_PCT(40), y_pos);
+    lv_textarea_set_one_line(m_lan_ip_input, true);
+    lv_textarea_set_text(m_lan_ip_input, "");
+    lv_textarea_set_accepted_chars(m_lan_ip_input, "0123456789.");
+    lv_obj_add_event_cb(m_lan_ip_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_lan_ip_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_lan_ip_input, LV_STATE_DISABLED);  // Disabled by default (DHCP on)
+    
+    y_pos += 60;
+    
+    // Netmask
+    lv_obj_t* netmask_label = lv_label_create(tab);
+    lv_label_set_text(netmask_label, "Netmask:");
+    lv_obj_set_pos(netmask_label, 20, y_pos);
+    
+    m_lan_netmask_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_lan_netmask_input, LV_PCT(60), field_height);
+    lv_obj_set_pos(m_lan_netmask_input, LV_PCT(40), y_pos);
+    lv_textarea_set_one_line(m_lan_netmask_input, true);
+    lv_textarea_set_text(m_lan_netmask_input, "255.255.255.0");
+    lv_textarea_set_accepted_chars(m_lan_netmask_input, "0123456789.");
+    lv_obj_add_event_cb(m_lan_netmask_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_lan_netmask_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_lan_netmask_input, LV_STATE_DISABLED);
+    
+    y_pos += 60;
+    
+    // Gateway
+    lv_obj_t* gateway_label = lv_label_create(tab);
+    lv_label_set_text(gateway_label, "Gateway:");
+    lv_obj_set_pos(gateway_label, 20, y_pos);
+    
+    m_lan_gateway_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_lan_gateway_input, LV_PCT(60), field_height);
+    lv_obj_set_pos(m_lan_gateway_input, LV_PCT(40), y_pos);
+    lv_textarea_set_one_line(m_lan_gateway_input, true);
+    lv_textarea_set_text(m_lan_gateway_input, "");
+    lv_textarea_set_accepted_chars(m_lan_gateway_input, "0123456789.");
+    lv_obj_add_event_cb(m_lan_gateway_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_lan_gateway_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_lan_gateway_input, LV_STATE_DISABLED);
+    
+    y_pos += 80;
+    
+    // Status label
+    m_lan_status_label = lv_label_create(tab);
+    lv_label_set_text(m_lan_status_label, "Status: Checking...");
+    lv_obj_set_pos(m_lan_status_label, 20, y_pos);
+    lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0xFFFFFF), 0);
+    
+    // Update status from LanManager
+    LanManager& lan = LanManager::getInstance();
+    if (lan.isConnected()) {
+        updateEthStatus(true, lan.getIpAddress());
+    } else {
+        updateEthStatus(false, "");
+    }
+    
+    y_pos += 60;
+    
+    // Apply button
+    lv_obj_t* apply_btn = lv_button_create(tab);
+    lv_obj_set_size(apply_btn, 150, 50);
+    lv_obj_set_pos(apply_btn, 20, y_pos);
+    lv_obj_add_event_cb(apply_btn, lan_save_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* apply_label = lv_label_create(apply_btn);
+    lv_label_set_text(apply_label, "Apply");
+    lv_obj_center(apply_label);
+    
+    ESP_LOGI(TAG, "LAN tab created");
+}
+
+void SettingsUI::createWifiTab(lv_obj_t* tab) {
+    int y_pos = 20;
+    
+    // Scan button
+    lv_obj_t* scan_btn = lv_button_create(tab);
+    lv_obj_set_size(scan_btn, 150, 50);
+    lv_obj_set_pos(scan_btn, 20, y_pos);
+    lv_obj_add_event_cb(scan_btn, wifi_scan_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* scan_label = lv_label_create(scan_btn);
+    lv_label_set_text(scan_label, LV_SYMBOL_REFRESH " Scan");
+    lv_obj_center(scan_label);
+    
+    y_pos += 70;
+    
+    // WiFi list (scrollable)
+    m_wifi_list = lv_list_create(tab);
+    lv_obj_set_size(m_wifi_list, LV_PCT(95), 200);
+    lv_obj_set_pos(m_wifi_list, 10, y_pos);
+    
+    y_pos += 220;
+    
+    // SSID input
+    lv_obj_t* ssid_label = lv_label_create(tab);
+    lv_label_set_text(ssid_label, "SSID:");
+    lv_obj_set_pos(ssid_label, 20, y_pos);
+    
+    m_wifi_ssid_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_wifi_ssid_input, LV_PCT(60), 40);
+    lv_obj_set_pos(m_wifi_ssid_input, LV_PCT(40), y_pos);
+    lv_textarea_set_one_line(m_wifi_ssid_input, true);
+    lv_textarea_set_placeholder_text(m_wifi_ssid_input, "Select AP or type SSID");
+    lv_obj_add_event_cb(m_wifi_ssid_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_wifi_ssid_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += 60;
+    
+    // Password input
+    lv_obj_t* password_label = lv_label_create(tab);
+    lv_label_set_text(password_label, "Password:");
+    lv_obj_set_pos(password_label, 20, y_pos);
+    
+    m_wifi_password_input = lv_textarea_create(tab);
+    lv_obj_set_size(m_wifi_password_input, LV_PCT(60), 40);
+    lv_obj_set_pos(m_wifi_password_input, LV_PCT(40), y_pos);
+    lv_textarea_set_one_line(m_wifi_password_input, true);
+    lv_textarea_set_password_mode(m_wifi_password_input, true);
+    lv_obj_add_event_cb(m_wifi_password_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_wifi_password_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    
+    y_pos += 60;
+    
+    // Connect button
+    lv_obj_t* connect_btn = lv_button_create(tab);
+    lv_obj_set_size(connect_btn, 150, 50);
+    lv_obj_set_pos(connect_btn, 20, y_pos);
+    lv_obj_add_event_cb(connect_btn, wifi_connect_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* connect_label = lv_label_create(connect_btn);
+    lv_label_set_text(connect_label, "Connect");
+    lv_obj_center(connect_label);
+    
+    y_pos += 60;
+    
+    // Status label
+    m_wifi_status_label = lv_label_create(tab);
+    lv_label_set_text(m_wifi_status_label, "Status: Not connected");
+    lv_obj_set_pos(m_wifi_status_label, 20, y_pos);
+    lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFFFFFF), 0);
+    
+    // Update status from WirelessManager
+    WirelessManager& wifi = WirelessManager::getInstance();
+    if (wifi.isConnected()) {
+        updateWifiStatus(true, wifi.getCurrentSsid(), wifi.getIpAddress());
+    } else {
+        updateWifiStatus(false, "", "");
+    }
+    
+    ESP_LOGI(TAG, "WiFi tab created");
+}
+
+void SettingsUI::createAboutTab(lv_obj_t* tab) {
+    int y_pos = 20;
+    
+    // Get app description
+    const esp_app_desc_t* app_desc = esp_app_get_description();
+    
+    // App version
+    lv_obj_t* version_label = lv_label_create(tab);
+    char version_text[128];
+    snprintf(version_text, sizeof(version_text), "Version: %s", app_desc->version);
+    lv_label_set_text(version_label, version_text);
+    lv_obj_set_pos(version_label, 20, y_pos);
+    lv_obj_set_style_text_font(version_label, &lv_font_montserrat_16, 0);
+    
+    y_pos += 40;
+    
+    // Build date/time
+    lv_obj_t* date_label = lv_label_create(tab);
+    char date_text[128];
+    snprintf(date_text, sizeof(date_text), "Built: %s %s", app_desc->date, app_desc->time);
+    lv_label_set_text(date_label, date_text);
+    lv_obj_set_pos(date_label, 20, y_pos);
+    
+    y_pos += 35;
+    
+    // IDF version
+    lv_obj_t* idf_label = lv_label_create(tab);
+    char idf_text[128];
+    snprintf(idf_text, sizeof(idf_text), "ESP-IDF: %s", app_desc->idf_ver);
+    lv_label_set_text(idf_label, idf_text);
+    lv_obj_set_pos(idf_label, 20, y_pos);
+    
+    y_pos += 50;
+    
+    // Hardware section
+    lv_obj_t* hw_title = lv_label_create(tab);
+    lv_label_set_text(hw_title, "Hardware:");
+    lv_obj_set_pos(hw_title, 20, y_pos);
+    lv_obj_set_style_text_font(hw_title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(hw_title, lv_color_hex(0x3498DB), 0);
+    
+    y_pos += 35;
+    
+    lv_obj_t* hw_list = lv_label_create(tab);
+    lv_label_set_text(hw_list, 
+        "  • ESP32-P4 Function EV Board\n"
+        "  • 800x600 IPS LCD Display\n"
+        "  • GT911 Touch Controller\n"
+        "  • Ethernet PHY (W5500)\n"
+        "  • ESP32-C6 WiFi (SDIO)");
+    lv_obj_set_pos(hw_list, 30, y_pos);
+    
+    y_pos += 120;
+    
+    // Features section
+    lv_obj_t* feat_title = lv_label_create(tab);
+    lv_label_set_text(feat_title, "Features:");
+    lv_obj_set_pos(feat_title, 20, y_pos);
+    lv_obj_set_style_text_font(feat_title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(feat_title, lv_color_hex(0x3498DB), 0);
+    
+    y_pos += 35;
+    
+    lv_obj_t* feat_list = lv_label_create(tab);
+    lv_label_set_text(feat_list, 
+        "  • MQTT Client (JSON Config)\n"
+        "  • Dynamic Widget System\n"
+        "  • Ethernet & WiFi Support\n"
+        "  • Touch-Optimized UI\n"
+        "  • Real-time Updates");
+    lv_obj_set_pos(feat_list, 30, y_pos);
+    
+    ESP_LOGI(TAG, "About tab created");
 }
 
 void SettingsUI::show() {
@@ -210,6 +499,10 @@ void SettingsUI::bringToFront() {
     if (m_gear_icon) {
         lv_obj_move_foreground(m_gear_icon);
     }
+    // Also bring settings screen to front if visible
+    if (m_visible && m_tabview) {
+        lv_obj_move_foreground(m_tabview);
+    }
 }
 
 void SettingsUI::gear_clicked_cb(lv_event_t* e) {
@@ -217,8 +510,14 @@ void SettingsUI::gear_clicked_cb(lv_event_t* e) {
     ui->show();
 }
 
-void SettingsUI::save_clicked_cb(lv_event_t* e) {
+void SettingsUI::mqtt_save_clicked_cb(lv_event_t* e) {
     SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    
+    // Hide keyboard if visible
+    if (ui->m_keyboard) {
+        lv_obj_add_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_center(ui->m_settings_screen);
+    }
     
     // Read values from inputs
     ui->m_broker_uri = lv_textarea_get_text(ui->m_broker_input);
@@ -229,7 +528,7 @@ void SettingsUI::save_clicked_cb(lv_event_t* e) {
     
     // Save to NVS
     if (ui->saveSettings()) {
-        ESP_LOGI(TAG, "Settings saved, reconnecting to MQTT...");
+        ESP_LOGI(TAG, "MQTT settings saved, reconnecting...");
         
         // Reconnect MQTT with new settings
         MQTTManager::getInstance().deinit();
@@ -241,13 +540,140 @@ void SettingsUI::save_clicked_cb(lv_event_t* e) {
             MQTTManager::getInstance().init(ui->m_broker_uri, ui->m_client_id);
         }
     }
-    
+}
+
+void SettingsUI::close_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
     ui->hide();
 }
 
-void SettingsUI::cancel_clicked_cb(lv_event_t* e) {
+void SettingsUI::tab_changed_cb(lv_event_t* e) {
     SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
-    ui->hide();
+    
+    // Get the active tab after the change
+    uint32_t tab_idx = lv_tabview_get_tab_active(ui->m_tabview);
+    
+    ESP_LOGI(TAG, "Tab changed to index: %lu", tab_idx);
+    
+    // Tab indices: 0=MQTT, 1=LAN, 2=WiFi, 3=About, 4=Close
+    if (tab_idx == 4) {
+        ESP_LOGI(TAG, "Close tab selected, hiding settings");
+        ui->hide();
+    }
+}
+
+void SettingsUI::lan_dhcp_switch_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    lv_obj_t* sw = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    
+    bool dhcp_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    
+    // Enable/disable static IP fields based on DHCP state
+    if (dhcp_enabled) {
+        lv_obj_add_state(ui->m_lan_ip_input, LV_STATE_DISABLED);
+        lv_obj_add_state(ui->m_lan_netmask_input, LV_STATE_DISABLED);
+        lv_obj_add_state(ui->m_lan_gateway_input, LV_STATE_DISABLED);
+        ESP_LOGI(TAG, "DHCP enabled, static IP fields disabled");
+    } else {
+        lv_obj_clear_state(ui->m_lan_ip_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(ui->m_lan_netmask_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(ui->m_lan_gateway_input, LV_STATE_DISABLED);
+        ESP_LOGI(TAG, "DHCP disabled, static IP fields enabled");
+    }
+}
+
+void SettingsUI::lan_save_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    
+    // Hide keyboard if visible
+    if (ui->m_keyboard) {
+        lv_obj_add_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_center(ui->m_settings_screen);
+    }
+    
+    bool dhcp_enabled = lv_obj_has_state(ui->m_lan_dhcp_switch, LV_STATE_CHECKED);
+    LanManager& lan = LanManager::getInstance();
+    
+    if (dhcp_enabled) {
+        // Apply DHCP
+        lan.setIpConfig(EthIpConfigMode::DHCP, nullptr);
+        ESP_LOGI(TAG, "LAN configured for DHCP");
+    } else {
+        // Apply static IP
+        EthStaticIpConfig config;
+        config.ip = lv_textarea_get_text(ui->m_lan_ip_input);
+        config.netmask = lv_textarea_get_text(ui->m_lan_netmask_input);
+        config.gateway = lv_textarea_get_text(ui->m_lan_gateway_input);
+        
+        lan.setIpConfig(EthIpConfigMode::STATIC, &config);
+        ESP_LOGI(TAG, "LAN configured for static IP: %s", config.ip.c_str());
+    }
+}
+
+void SettingsUI::wifi_scan_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    ui->performWifiScan();
+}
+
+void SettingsUI::wifi_ap_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    
+    // Get SSID from button text
+    lv_obj_t* label = lv_obj_get_child(btn, 0);
+    if (label) {
+        const char* text = lv_label_get_text(label);
+        // Remove signal strength prefix (e.g., "� MyNetwork" -> "MyNetwork")
+        const char* ssid_start = strchr(text, ' ');
+        if (ssid_start) {
+            ui->m_selected_ssid = std::string(ssid_start + 1);
+            // Remove trailing WiFi symbol if present
+            size_t wifi_sym_pos = ui->m_selected_ssid.find(std::string(" ") + LV_SYMBOL_WIFI);
+            if (wifi_sym_pos != std::string::npos) {
+                ui->m_selected_ssid = ui->m_selected_ssid.substr(0, wifi_sym_pos);
+            }
+            ESP_LOGI(TAG, "Selected WiFi AP: %s", ui->m_selected_ssid.c_str());
+            
+            // Update SSID input field
+            if (ui->m_wifi_ssid_input) {
+                lv_textarea_set_text(ui->m_wifi_ssid_input, ui->m_selected_ssid.c_str());
+            }
+        }
+    }
+}
+
+void SettingsUI::wifi_connect_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    
+    // Hide keyboard if visible
+    if (ui->m_keyboard) {
+        lv_obj_add_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_center(ui->m_settings_screen);
+    }
+    
+    // Get SSID from input field
+    std::string ssid = lv_textarea_get_text(ui->m_wifi_ssid_input);
+    if (ssid.empty()) {
+        ESP_LOGW(TAG, "No WiFi SSID entered");
+        lv_label_set_text(ui->m_wifi_status_label, "Status: Enter SSID first");
+        return;
+    }
+    
+    std::string password = lv_textarea_get_text(ui->m_wifi_password_input);
+    
+    lv_label_set_text(ui->m_wifi_status_label, "Status: Connecting...");
+    lv_label_set_text_fmt(ui->m_wifi_status_label, "Connecting to %s...", ssid.c_str());
+    
+    WirelessManager& wifi = WirelessManager::getInstance();
+    esp_err_t err = wifi.connect(ssid, password, 15000);
+    
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "WiFi connected successfully");
+        ui->updateWifiStatus(true, ssid, wifi.getIpAddress());
+    } else {
+        ESP_LOGE(TAG, "WiFi connection failed: %s", esp_err_to_name(err));
+        lv_label_set_text(ui->m_wifi_status_label, "Status: Connection failed");
+    }
 }
 
 void SettingsUI::textarea_focused_cb(lv_event_t* e) {
@@ -256,28 +682,60 @@ void SettingsUI::textarea_focused_cb(lv_event_t* e) {
     
     if (ui->m_keyboard) {
         lv_keyboard_set_textarea(ui->m_keyboard, textarea);
+        
+        // Set keyboard mode based on textarea type
+        if (textarea == ui->m_lan_ip_input || 
+            textarea == ui->m_lan_netmask_input || 
+            textarea == ui->m_lan_gateway_input) {
+            // Use number mode for IP address fields
+            lv_keyboard_set_mode(ui->m_keyboard, LV_KEYBOARD_MODE_NUMBER);
+            ESP_LOGD(TAG, "Keyboard mode set to NUMBER for IP field");
+        } else {
+            // Use text mode for other fields
+            lv_keyboard_set_mode(ui->m_keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
+            ESP_LOGD(TAG, "Keyboard mode set to TEXT");
+        }
+        
         lv_obj_clear_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
         
-        // Move settings panel up to keep textarea visible above keyboard
-        // Keyboard is 40% of screen (600px * 0.4 = 240px)
-        // Move panel up by half the keyboard height to ensure visibility
-        lv_obj_align(ui->m_settings_screen, LV_ALIGN_TOP_MID, 0, 10);
+        // Get keyboard and screen dimensions
+        int32_t keyboard_height = lv_obj_get_height(ui->m_keyboard);
+        int32_t screen_height = lv_obj_get_height(lv_screen_active());
         
-        ESP_LOGD(TAG, "Keyboard shown for textarea");
+        // Get textarea absolute position (including parent offsets)
+        lv_area_t textarea_area;
+        lv_obj_get_coords(textarea, &textarea_area);
+        int32_t textarea_bottom = textarea_area.y2;
+        
+        // Calculate where keyboard starts
+        int32_t keyboard_top = screen_height - keyboard_height;
+        
+        // Check if textarea would be covered by keyboard
+        if (textarea_bottom > keyboard_top) {
+            // Move screen up by just enough to show textarea above keyboard
+            int32_t overlap = textarea_bottom - keyboard_top + 20; // +20px padding
+            lv_obj_align(ui->m_settings_screen, LV_ALIGN_TOP_MID, 0, -overlap);
+            ESP_LOGD(TAG, "Keyboard shown, moved screen up by %d px to avoid overlap", overlap);
+        } else {
+            // Textarea is already visible, no need to move
+            lv_obj_center(ui->m_settings_screen);
+            ESP_LOGD(TAG, "Keyboard shown, textarea already visible");
+        }
     }
 }
 
-void SettingsUI::button_clicked_cb(lv_event_t* e) {
+void SettingsUI::textarea_defocused_cb(lv_event_t* e) {
     SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
     
-    // Hide keyboard when any button is clicked
+    // Hide keyboard when textarea loses focus
     if (ui->m_keyboard) {
         lv_obj_add_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
-        // Restore settings panel to center position
         lv_obj_center(ui->m_settings_screen);
-        ESP_LOGD(TAG, "Keyboard hidden");
+        ESP_LOGD(TAG, "Keyboard hidden (textarea defocused)");
     }
 }
+
+
 
 void SettingsUI::createKeyboard() {
     if (!m_keyboard) {
@@ -384,4 +842,105 @@ bool SettingsUI::saveSettings() {
     
     ESP_LOGI(TAG, "Settings saved to NVS");
     return true;
+}
+
+void SettingsUI::performWifiScan() {
+    ESP_LOGI(TAG, "Starting WiFi scan...");
+    
+    // Update status to show scanning
+    if (m_wifi_status_label) {
+        lv_label_set_text(m_wifi_status_label, "Scanning...");
+        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFFAA00), 0);
+    }
+    
+    WirelessManager& wifi = WirelessManager::getInstance();
+    
+    // Use async scan to avoid blocking HMI task
+    wifi.scanAsync([this](const std::vector<WifiNetworkInfo>& networks, esp_err_t err) {
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Found %d WiFi networks", networks.size());
+            
+            // Convert to WifiAP structure
+            std::vector<WifiAP> aps;
+            for (const auto& net : networks) {
+                WifiAP ap;
+                ap.ssid = net.ssid;
+                ap.rssi = net.rssi;
+                ap.requires_password = (net.auth_mode != WIFI_AUTH_OPEN);
+                aps.push_back(ap);
+            }
+            
+            // Update UI from LVGL task context
+            updateWifiScanResults(aps);
+            
+            if (m_wifi_status_label) {
+                lv_label_set_text(m_wifi_status_label, "Scan complete");
+                lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0x00FF00), 0);
+            }
+        } else {
+            ESP_LOGE(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
+            
+            if (m_wifi_status_label) {
+                lv_label_set_text(m_wifi_status_label, "Scan failed");
+                lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFF0000), 0);
+            }
+        }
+    }, 20);
+}
+
+void SettingsUI::updateWifiScanResults(const std::vector<WifiAP>& aps) {
+    if (!m_wifi_list) return;
+    
+    // Clear existing list
+    lv_obj_clean(m_wifi_list);
+    
+    ESP_LOGI(TAG, "Updating WiFi list with %d APs", aps.size());
+    
+    for (const auto& ap : aps) {
+        // Use LVGL symbols for signal strength indicators
+        const char* signal_icon;
+        if (ap.rssi > -50) {
+            signal_icon = LV_SYMBOL_WIFI;  // Strong signal
+        } else if (ap.rssi > -70) {
+            signal_icon = LV_SYMBOL_WARNING;  // Medium signal
+        } else {
+            signal_icon = LV_SYMBOL_CLOSE;  // Weak signal
+        }
+        
+        char btn_text[128];
+        snprintf(btn_text, sizeof(btn_text), "%s %s %s", 
+                 signal_icon, ap.ssid.c_str(), 
+                 ap.requires_password ? LV_SYMBOL_SETTINGS : "");
+        
+        lv_obj_t* btn = lv_list_add_button(m_wifi_list, nullptr, btn_text);
+        lv_obj_add_event_cb(btn, wifi_ap_clicked_cb, LV_EVENT_CLICKED, this);
+    }
+}
+
+void SettingsUI::updateEthStatus(bool connected, const std::string& ip) {
+    if (!m_lan_status_label) return;
+    
+    if (connected && !ip.empty()) {
+        char status[128];
+        snprintf(status, sizeof(status), "Status: Connected - %s", ip.c_str());
+        lv_label_set_text(m_lan_status_label, status);
+        lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0x00FF00), 0);
+    } else {
+        lv_label_set_text(m_lan_status_label, "Status: Disconnected");
+        lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0xFF0000), 0);
+    }
+}
+
+void SettingsUI::updateWifiStatus(bool connected, const std::string& ssid, const std::string& ip) {
+    if (!m_wifi_status_label) return;
+    
+    if (connected && !ssid.empty() && !ip.empty()) {
+        char status[128];
+        snprintf(status, sizeof(status), "Connected: %s - %s", ssid.c_str(), ip.c_str());
+        lv_label_set_text(m_wifi_status_label, status);
+        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0x00FF00), 0);
+    } else {
+        lv_label_set_text(m_wifi_status_label, "Status: Not connected");
+        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFF0000), 0);
+    }
 }

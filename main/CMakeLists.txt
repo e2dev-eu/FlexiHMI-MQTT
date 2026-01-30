@@ -14,5 +14,7 @@ idf_component_register(
         config_manager
         settings_ui
         status_info_ui
+        wireless_manager
+        lan_manager
         mqtt
 )

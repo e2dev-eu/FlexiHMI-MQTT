@@ -5,3 +5,9 @@ dependencies:
   espressif/esp32_p4_function_ev_board:
     version: "*"
     public: true
+  espressif/esp_hosted:
+    version: "*"
+    public: true
+  espressif/esp_wifi_remote:
+    version: "*"
+    public: true

@@ -10,7 +10,9 @@
 #include "mqtt_manager.h"
 #include "config_manager.h"
 #include "settings_ui.h"
-#include "status_info_ui.h"
+#include "wireless_manager.h"
+#include "lan_manager.h"
+#include "esp_hosted.h"  // ESP-Hosted for ESP32-C6 wireless co-processor
 
 static const char *TAG = "app_main_cpp";
 
@@ -48,9 +50,6 @@ static void mqtt_task(void *pvParameters)
         std::string config_topic = settings.getConfigTopic();
         ESP_LOGI(TAG, "MQTT connected, subscribing to config topic: %s", config_topic.c_str());
         
-        // Update status info
-        StatusInfoUI::getInstance().updateMqttStatus(true, settings.getBrokerUri());
-        
         // Subscribe to configuration topic
         mqtt.subscribe(config_topic, 0, [](const std::string& topic, const std::string& payload) {
             ESP_LOGI(TAG, "Received config on %s, size: %d bytes", topic.c_str(), payload.size());
@@ -58,7 +57,6 @@ static void mqtt_task(void *pvParameters)
         });
     } else {
         ESP_LOGE(TAG, "MQTT connection failed - no configuration available");
-        StatusInfoUI::getInstance().updateMqttStatus(false, settings.getBrokerUri());
     }
     
     // Keep task running
@@ -79,16 +77,6 @@ static void hmi_task(void *pvParameters)
         // Process any pending configuration from MQTT
         ConfigManager::getInstance().processPendingConfig();
         
-        // Update system info periodically
-        static int update_counter = 0;
-        if (++update_counter >= 10) {  // Update every second
-            update_counter = 0;
-            StatusInfoUI::getInstance().updateSystemInfo(
-                esp_get_free_heap_size(),
-                esp_get_minimum_free_heap_size()
-            );
-        }
-        
         // lv_timer_handler is called automatically by the LVGL port
         
         bsp_display_unlock();
@@ -104,24 +92,103 @@ static void init_base_ui(void)
     // Lock display while creating UI
     bsp_display_lock(0);
     
+    // Apply LVGL dark theme
+    lv_theme_t* theme = lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), 
+                                               lv_palette_main(LV_PALETTE_RED), 
+                                               true, LV_FONT_DEFAULT);
+    lv_disp_set_theme(lv_disp_get_default(), theme);
+    
     // Setup screen background
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x1E1E1E), LV_PART_MAIN);
     
-    // Initialize settings UI (creates gear icon)
+    // Initialize settings UI (creates gear icon in bottom-right)
     SettingsUI::getInstance().init(scr);
-    
-    // Initialize status info UI (creates info icon)
-    StatusInfoUI::getInstance().init(scr);
     
     bsp_display_unlock();
     
     ESP_LOGI(TAG, "Base UI initialized");
 }
 
+// Initialize network managers (Ethernet and Wi-Fi)
+static void init_network_managers(void)
+{
+    ESP_LOGI(TAG, "Initializing network managers...");
+    
+    // Initialize ESP-Hosted (ESP32-C6 wireless co-processor over SDIO)
+    ESP_LOGI(TAG, "Initializing ESP-Hosted for ESP32-C6 co-processor...");
+    esp_err_t ret = esp_hosted_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "ESP-Hosted initialization failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Check that ESP32-C6 is flashed with esp-hosted slave firmware");
+    } else {
+        ESP_LOGI(TAG, "ESP-Hosted initialized successfully");
+        
+        // Get co-processor app descriptor
+        esp_hosted_app_desc_t desc = {};
+        if (esp_hosted_get_coprocessor_app_desc(&desc) == ESP_OK) {
+            ESP_LOGI(TAG, "ESP32-C6 Firmware: %s, Version: %s", desc.project_name, desc.version);
+        }
+    }
+    
+    // Initialize LAN Manager
+    LanManager& lan = LanManager::getInstance();
+    
+    // Set up LAN callbacks
+    lan.setStatusCallback([](EthConnectionStatus status, const std::string& info) {
+        const char* status_str = "Unknown";
+        switch (status) {
+            case EthConnectionStatus::DISCONNECTED: status_str = "Disconnected"; break;
+            case EthConnectionStatus::LINK_DOWN: status_str = "Link Down"; break;
+            case EthConnectionStatus::LINK_UP: status_str = "Link Up"; break;
+            case EthConnectionStatus::CONNECTED: status_str = "Connected"; break;
+        }
+        ESP_LOGI("LAN", "Status: %s - %s", status_str, info.c_str());
+    });
+    
+    lan.setIpCallback([](const std::string& ip, const std::string& netmask, const std::string& gateway) {
+        ESP_LOGI("LAN", "IP: %s, Netmask: %s, Gateway: %s", ip.c_str(), netmask.c_str(), gateway.c_str());
+        // Note: Status info UI is already updated by ethernet_init event handlers
+    });
+    
+    if (lan.init() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize LAN Manager");
+    } else {
+        ESP_LOGI(TAG, "LAN Manager initialized (MAC: %s)", lan.getMacAddress().c_str());
+    }
+    
+    // Initialize Wireless Manager
+    WirelessManager& wifi = WirelessManager::getInstance();
+    
+    // Set up Wi-Fi callbacks
+    wifi.setStatusCallback([](WifiConnectionStatus status, const std::string& info) {
+        const char* status_str = "Unknown";
+        switch (status) {
+            case WifiConnectionStatus::DISCONNECTED: status_str = "Disconnected"; break;
+            case WifiConnectionStatus::CONNECTING: status_str = "Connecting"; break;
+            case WifiConnectionStatus::CONNECTED: status_str = "Connected"; break;
+            case WifiConnectionStatus::FAILED: status_str = "Failed"; break;
+        }
+        ESP_LOGI("WiFi", "Status: %s - %s", status_str, info.c_str());
+    });
+    
+    wifi.setIpCallback([](const std::string& ip, const std::string& netmask, const std::string& gateway) {
+        ESP_LOGI("WiFi", "IP: %s, Netmask: %s, Gateway: %s", ip.c_str(), netmask.c_str(), gateway.c_str());
+    });
+    
+    if (wifi.init() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize Wireless Manager");
+    } else {
+        ESP_LOGI(TAG, "Wireless Manager initialized");
+    }
+}
+
 extern "C" void app_main_cpp(void)
 {
     ESP_LOGI(TAG, "Initializing ESP32-P4 MQTT Panel...");
+    
+    // Initialize network managers (Ethernet and Wi-Fi)
+    init_network_managers();
     
     // Initialize base UI (gear icon + placeholder)
     init_base_ui();
