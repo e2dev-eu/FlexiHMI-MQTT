@@ -9,6 +9,7 @@ bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, c
     m_id = id;
     m_selected = 0;
     m_retained = true;
+    m_last_published_payload = "";  // No echo to ignore yet
     
     // Extract properties
     if (properties) {
@@ -83,7 +84,7 @@ bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, c
     
     // Subscribe to mqtt_topic to receive external updates
     if (!m_mqtt_topic.empty()) {
-        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
+        m_subscription_handle = MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
             [this](const std::string& topic, const std::string& payload) {
                 this->onMqttMessage(topic, payload);
             });
@@ -97,6 +98,10 @@ bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, c
 }
 
 void DropdownWidget::destroy() {
+    if (m_subscription_handle != 0) {
+        MQTTManager::getInstance().unsubscribe(m_subscription_handle);
+        m_subscription_handle = 0;
+    }
     if (m_lvgl_obj) {
         lv_obj_delete(m_lvgl_obj);
         m_lvgl_obj = nullptr;
@@ -118,6 +123,7 @@ void DropdownWidget::dropdown_event_cb(lv_event_t* e) {
         
         if (!widget->m_mqtt_topic.empty() && new_selected < widget->m_options.size()) {
             const char* payload = widget->m_options[new_selected].c_str();
+            widget->m_last_published_payload = payload;  // Track published payload to ignore echo
             MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
             ESP_LOGI(TAG, "Dropdown %s changed to %s, published to %s (retained=%d)", 
                      widget->m_id.c_str(), payload, widget->m_mqtt_topic.c_str(), widget->m_retained);
@@ -126,14 +132,34 @@ void DropdownWidget::dropdown_event_cb(lv_event_t* e) {
 }
 
 void DropdownWidget::onMqttMessage(const std::string& topic, const std::string& payload) {
+    // Check if payload matches what we just published (ignore own echo)
+    if (m_last_published_payload == payload && !m_last_published_payload.empty()) {
+        ESP_LOGD(TAG, "Dropdown %s ignoring own published value: %s", m_id.c_str(), payload.c_str());
+        m_last_published_payload.clear();  // Clear after first ignore
+        return;
+    }
+    
     uint16_t new_selected = m_selected;
     
-    // Try to parse as index first
-    int index = atoi(payload.c_str());
-    if (index >= 0 && index < (int)m_options.size()) {
-        new_selected = index;
+    // Check if payload is a pure number (index)
+    bool is_numeric = !payload.empty() && (isdigit(payload[0]) || payload[0] == '-');
+    if (is_numeric) {
+        for (size_t i = 1; i < payload.length(); i++) {
+            if (!isdigit(payload[i])) {
+                is_numeric = false;
+                break;
+            }
+        }
+    }
+    
+    if (is_numeric) {
+        // Parse as index
+        int index = atoi(payload.c_str());
+        if (index >= 0 && index < (int)m_options.size()) {
+            new_selected = index;
+        }
     } else {
-        // Try to find matching option string
+        // Find matching option string
         for (size_t i = 0; i < m_options.size(); i++) {
             if (m_options[i] == payload) {
                 new_selected = i;
@@ -158,9 +184,11 @@ void DropdownWidget::async_update_cb(void* user_data) {
 
 void DropdownWidget::updateSelection(uint16_t selected) {
     if (m_lvgl_obj && lv_obj_is_valid(m_lvgl_obj)) {
-        m_updating_from_mqtt = true;
         m_selected = selected;
+        m_updating_from_mqtt = true;
         lv_dropdown_set_selected(m_lvgl_obj, m_selected);
+        // Keep flag set for a brief moment to ensure event callback sees it
+        lv_timer_handler();  // Process any pending events
         m_updating_from_mqtt = false;
         ESP_LOGI(TAG, "Updated dropdown %s to index: %d", m_id.c_str(), m_selected);
     }

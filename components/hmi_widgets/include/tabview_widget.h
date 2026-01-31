@@ -27,4 +27,5 @@ private:
     bool m_retained;
     bool m_updating_from_mqtt;
     uint32_t m_active_tab;
+    uint32_t m_subscription_handle = 0;  // MQTT subscription handle
 };

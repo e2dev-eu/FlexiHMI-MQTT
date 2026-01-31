@@ -25,6 +25,8 @@ private:
     uint16_t m_selected;
     bool m_retained;
     bool m_updating_from_mqtt = false;
+    std::string m_last_published_payload;  // Track last published payload to ignore echo
+    uint32_t m_subscription_handle = 0;  // MQTT subscription handle
     lv_color_t m_color;
     bool m_has_color = false;
 };

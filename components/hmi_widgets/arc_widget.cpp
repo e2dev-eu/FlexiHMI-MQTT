@@ -75,7 +75,7 @@ bool ArcWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     
     // Subscribe to mqtt_topic to receive external updates
     if (!m_mqtt_topic.empty()) {
-        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
+        m_subscription_handle = MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
             [this](const std::string& topic, const std::string& payload) {
                 this->onMqttMessage(topic, payload);
             });
@@ -88,6 +88,10 @@ bool ArcWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
 }
 
 void ArcWidget::destroy() {
+    if (m_subscription_handle != 0) {
+        MQTTManager::getInstance().unsubscribe(m_subscription_handle);
+        m_subscription_handle = 0;
+    }
     if (m_lvgl_obj) {
         lv_obj_delete(m_lvgl_obj);
         m_lvgl_obj = nullptr;
@@ -111,7 +115,7 @@ void ArcWidget::arc_event_cb(lv_event_t* e) {
             char payload[16];
             snprintf(payload, sizeof(payload), "%d", new_value);
             MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
-            ESP_LOGI(TAG, "Arc %s changed to %d, published to %s (retained=%d)", 
+            ESP_LOGD(TAG, "Arc %s changed to %d, published to %s (retained=%d)", 
                      widget->m_id.c_str(), new_value, widget->m_mqtt_topic.c_str(), widget->m_retained);
         }
     }
@@ -144,6 +148,6 @@ void ArcWidget::updateValue(int value) {
         m_value = value;
         lv_arc_set_value(m_lvgl_obj, m_value);
         m_updating_from_mqtt = false;
-        ESP_LOGI(TAG, "Updated arc %s to value: %d", m_id.c_str(), m_value);
+        ESP_LOGD(TAG, "Updated arc %s to value: %d", m_id.c_str(), m_value);
     }
 }

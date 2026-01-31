@@ -11,6 +11,7 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     m_max = 100;
     m_value = 50;
     m_retained = true;  // Default to retained messages
+    m_last_published_value = -1;  // Invalid value, no echo to ignore yet
     
     // Extract properties
     if (properties) {
@@ -94,7 +95,7 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     
     // Subscribe to mqtt_topic to receive external updates
     if (!m_mqtt_topic.empty()) {
-        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
+        m_subscription_handle = MQTTManager::getInstance().subscribe(m_mqtt_topic, 0,
             [this](const std::string& topic, const std::string& payload) {
                 this->onMqttMessage(topic, payload);
             });
@@ -108,6 +109,10 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
 }
 
 void SliderWidget::destroy() {
+    if (m_subscription_handle != 0) {
+        MQTTManager::getInstance().unsubscribe(m_subscription_handle);
+        m_subscription_handle = 0;
+    }
     if (m_label_obj) {
         lv_obj_delete(m_label_obj);
         m_label_obj = nullptr;
@@ -130,7 +135,14 @@ void SliderWidget::onMqttMessage(const std::string& topic, const std::string& pa
     
     int value = std::atoi(payload.c_str());
     if (value >= m_min && value <= m_max) {
-        // Only update if value actually changed
+        // Ignore if this is the exact value we just published (our own echo)
+        if (value == m_last_published_value && m_last_published_value != -1) {
+            ESP_LOGD(TAG, "Slider %s ignoring own published value: %d", m_id.c_str(), value);
+            m_last_published_value = -1;  // Clear flag after first ignore
+            return;
+        }
+        
+        // Only update if the new value is different from current
         if (value == m_value) {
             return;
         }
@@ -172,9 +184,11 @@ void SliderWidget::updateValue(int value) {
         lv_label_set_text(m_value_label, buf);
     }
     
+    // Keep flag set briefly to ensure event is processed with flag still true
+    lv_timer_handler();
     m_updating_from_mqtt = false;
     
-    ESP_LOGI(TAG, "Updated slider %s: %d", m_id.c_str(), value);
+    ESP_LOGD(TAG, "Updated slider %s: %d", m_id.c_str(), value);
 }
 
 void SliderWidget::slider_event_cb(lv_event_t* e) {
@@ -199,8 +213,9 @@ void SliderWidget::slider_event_cb(lv_event_t* e) {
     if (!widget->m_mqtt_topic.empty()) {
         char payload[16];
         snprintf(payload, sizeof(payload), "%d", value);
+        widget->m_last_published_value = value;  // Track published value to ignore echo
         MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
-        ESP_LOGI(TAG, "Slider %s changed to %d, published to %s (retained=%d)", 
+        ESP_LOGD(TAG, "Slider %s changed to %d, published to %s (retained=%d)", 
                  widget->m_id.c_str(), value, widget->m_mqtt_topic.c_str(), widget->m_retained);
     }
 }

@@ -109,10 +109,11 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
         }
         
         // Subscribe for external updates
-        MQTTManager::getInstance().subscribe(m_mqtt_topic, 0, 
+        m_subscription_handle = MQTTManager::getInstance().subscribe(m_mqtt_topic, 0, 
             [this](const std::string& topic, const std::string& payload) {
                 this->onMqttMessage(topic, payload);
             });
+        ESP_LOGI(TAG, "Tabview %s subscribed to %s", id.c_str(), m_mqtt_topic.c_str());
     }
     
     // Register event callback for tab changes
@@ -125,6 +126,10 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
 }
 
 void TabviewWidget::destroy() {
+    if (m_subscription_handle != 0) {
+        MQTTManager::getInstance().unsubscribe(m_subscription_handle);
+        m_subscription_handle = 0;
+    }
     if (m_lvgl_obj) {
         lv_obj_delete(m_lvgl_obj);
         m_lvgl_obj = nullptr;

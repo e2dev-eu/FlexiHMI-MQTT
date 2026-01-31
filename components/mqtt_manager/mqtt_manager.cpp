@@ -101,28 +101,96 @@ void MQTTManager::deinit() {
     }
 }
 
-bool MQTTManager::subscribe(const std::string& topic, int qos, MessageCallback callback) {
+MQTTManager::SubscriptionHandle MQTTManager::subscribe(const std::string& topic, int qos, MessageCallback callback) {
     if (!m_client) {
         ESP_LOGE(TAG, "MQTT client not initialized");
+        return 0;  // Invalid handle
+    }
+    
+    // Generate unique handle
+    SubscriptionHandle handle = m_next_handle++;
+    
+    // Store subscription with handle
+    Subscription sub{handle, callback};
+    m_subscribers[topic].push_back(sub);
+    m_handle_to_topic[handle] = topic;
+    
+    // Only subscribe to broker once per topic
+    bool first_subscriber = (m_subscribers[topic].size() == 1);
+    if (first_subscriber) {
+        m_qos_map[topic] = qos;
+        
+        if (m_connected) {
+            int msg_id = esp_mqtt_client_subscribe(m_client, topic.c_str(), qos);
+            if (msg_id == -1) {
+                ESP_LOGE(TAG, "Failed to subscribe to %s", topic.c_str());
+                return 0;
+            }
+            ESP_LOGI(TAG, "Subscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
+        }
+    } else {
+        ESP_LOGI(TAG, "Added subscriber to existing topic %s (total: %d)", topic.c_str(), m_subscribers[topic].size());
+    }
+    
+    return handle;
+}
+
+bool MQTTManager::unsubscribe(SubscriptionHandle handle) {
+    if (handle == 0) {
+        return false;  // Invalid handle
+    }
+    
+    // Find topic for this handle
+    auto topic_it = m_handle_to_topic.find(handle);
+    if (topic_it == m_handle_to_topic.end()) {
+        ESP_LOGW(TAG, "Unknown subscription handle: %u", handle);
         return false;
     }
     
-    m_subscribers[topic] = callback;
-    m_qos_map[topic] = qos;
+    std::string topic = topic_it->second;
+    m_handle_to_topic.erase(topic_it);
     
-    if (m_connected) {
-        int msg_id = esp_mqtt_client_subscribe(m_client, topic.c_str(), qos);
-        if (msg_id == -1) {
-            ESP_LOGE(TAG, "Failed to subscribe to %s", topic.c_str());
-            return false;
+    // Remove subscription from topic's callback list
+    auto sub_it = m_subscribers.find(topic);
+    if (sub_it != m_subscribers.end()) {
+        auto& subs = sub_it->second;
+        subs.erase(std::remove_if(subs.begin(), subs.end(),
+            [handle](const Subscription& s) { return s.handle == handle; }),
+            subs.end());
+        
+        ESP_LOGI(TAG, "Unsubscribed handle %u from %s (%d remaining)", 
+                 handle, topic.c_str(), subs.size());
+        
+        // If no more subscribers for this topic, unsubscribe from broker
+        if (subs.empty()) {
+            m_subscribers.erase(sub_it);
+            m_qos_map.erase(topic);
+            
+            if (m_connected && m_client) {
+                int msg_id = esp_mqtt_client_unsubscribe(m_client, topic.c_str());
+                if (msg_id != -1) {
+                    ESP_LOGI(TAG, "Unsubscribed from broker topic %s, msg_id=%d", topic.c_str(), msg_id);
+                }
+            }
         }
-        ESP_LOGI(TAG, "Subscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
     }
     
     return true;
 }
 
-bool MQTTManager::unsubscribe(const std::string& topic) {
+bool MQTTManager::unsubscribeTopic(const std::string& topic) {
+    auto sub_it = m_subscribers.find(topic);
+    if (sub_it == m_subscribers.end()) {
+        return false;
+    }
+    
+    // Remove all handle mappings for this topic
+    for (const auto& sub : sub_it->second) {
+        m_handle_to_topic.erase(sub.handle);
+    }
+    
+    m_subscribers.erase(sub_it);
+    m_qos_map.erase(topic);
     if (!m_client) {
         ESP_LOGE(TAG, "MQTT client not initialized");
         return false;
@@ -228,10 +296,12 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         if (m_chunk_buffer.size() >= static_cast<size_t>(event->total_data_len)) {
             ESP_LOGI(TAG, "Complete message received on %s: %d bytes", topic.c_str(), m_chunk_buffer.size());
             
-            // Find matching subscriber and deliver complete message
+            // Find matching subscribers and deliver complete message to all
             auto it = m_subscribers.find(topic);
             if (it != m_subscribers.end()) {
-                it->second(topic, m_chunk_buffer);
+                for (auto& sub : it->second) {
+                    sub.callback(topic, m_chunk_buffer);
+                }
             }
             
             m_chunk_buffer.clear();
@@ -241,10 +311,13 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         std::string payload(event->data, event->data_len);
         ESP_LOGD(TAG, "Received on %s: %d bytes", topic.c_str(), payload.size());
         
-        // Find matching subscriber
+        // Find matching subscribers and invoke all callbacks
         auto it = m_subscribers.find(topic);
         if (it != m_subscribers.end()) {
-            it->second(topic, payload);
+            ESP_LOGD(TAG, "Delivering to %d subscriber(s)", it->second.size());
+            for (auto& sub : it->second) {
+                sub.callback(topic, payload);
+            }
         } else {
             ESP_LOGW(TAG, "No subscriber for topic: %s", topic.c_str());
         }

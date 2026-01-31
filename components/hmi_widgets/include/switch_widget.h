@@ -23,6 +23,7 @@ private:
     bool m_state;
     bool m_retained;
     bool m_updating_from_mqtt = false;  // Prevent feedback loop
+    uint32_t m_subscription_handle = 0;  // MQTT subscription handle
     lv_color_t m_color;
     bool m_has_color = false;
 };

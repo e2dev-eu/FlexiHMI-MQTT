@@ -22,6 +22,7 @@ private:
     int m_min;
     int m_max;
     int m_value;
+    uint32_t m_subscription_handle = 0;  // MQTT subscription handle
     lv_color_t m_color;
     bool m_has_color = false;
     lv_obj_t* m_label = nullptr;
