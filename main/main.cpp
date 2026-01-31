@@ -187,11 +187,11 @@ extern "C" void app_main_cpp(void)
 {
     ESP_LOGI(TAG, "Initializing ESP32-P4 MQTT Panel...");
     
-    // Initialize network managers (Ethernet and Wi-Fi)
-    init_network_managers();
-    
-    // Initialize base UI (gear icon + placeholder)
+    // Initialize base UI first (gear icon + placeholder) - shows immediately
     init_base_ui();
+    
+    // Initialize network managers (Ethernet and Wi-Fi) - can take time
+    init_network_managers();
     
     // Create HMI task for UI updates
     xTaskCreate(hmi_task, "hmi_task", 8192, NULL, 4, NULL);

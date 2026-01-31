@@ -30,15 +30,23 @@ WirelessManager::WirelessManager()
     , m_wifi_event_handler(nullptr)
     , m_ip_event_handler(nullptr)
 {
+    m_mutex = xSemaphoreCreateMutex();
 }
 
 WirelessManager::~WirelessManager() {
     deinit();
+    if (m_mutex) {
+        vSemaphoreDelete(m_mutex);
+        m_mutex = nullptr;
+    }
 }
 
 esp_err_t WirelessManager::init() {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (m_initialized) {
         ESP_LOGW(TAG, "Already initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_OK;
     }
 
@@ -118,11 +126,15 @@ esp_err_t WirelessManager::init() {
     m_initialized = true;
     ESP_LOGI(TAG, "Wireless Manager initialized successfully");
     
+    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
 esp_err_t WirelessManager::deinit() {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
+        xSemaphoreGive(m_mutex);
         return ESP_OK;
     }
 
@@ -160,15 +172,21 @@ esp_err_t WirelessManager::deinit() {
     m_status = WifiConnectionStatus::DISCONNECTED;
     
     ESP_LOGI(TAG, "Wireless Manager deinitialized");
+    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
 esp_err_t WirelessManager::scan(std::vector<WifiNetworkInfo>& networks, uint16_t max_results, uint32_t scan_time_ms) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
-
+    
+    xSemaphoreGive(m_mutex);
+    
     networks.clear();
 
     ESP_LOGI(TAG, "Starting Wi-Fi scan...");
@@ -255,10 +273,15 @@ esp_err_t WirelessManager::scan(std::vector<WifiNetworkInfo>& networks, uint16_t
 }
 
 esp_err_t WirelessManager::scanAsync(WifiScanCallback callback, uint16_t max_results) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
+    
+    xSemaphoreGive(m_mutex);
     
     ESP_LOGI(TAG, "Starting async Wi-Fi scan...");
     
@@ -307,13 +330,17 @@ void WirelessManager::scanTask(void* arg) {
 }
 
 esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& password, uint32_t timeout_ms) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
 
     if (ssid.empty()) {
         ESP_LOGE(TAG, "SSID cannot be empty");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -323,8 +350,11 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
     m_status = WifiConnectionStatus::CONNECTING;
     m_current_ssid = ssid;
     
-    if (m_status_callback) {
-        m_status_callback(m_status, ssid);
+    StatusCallback status_cb = m_status_callback;
+    xSemaphoreGive(m_mutex);
+    
+    if (status_cb) {
+        status_cb(WifiConnectionStatus::CONNECTING, ssid);
     }
 
     // Configure Wi-Fi
@@ -340,9 +370,12 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
     esp_err_t ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi config: %s", esp_err_to_name(ret));
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_status = WifiConnectionStatus::FAILED;
-        if (m_status_callback) {
-            m_status_callback(m_status, "Configuration failed");
+        status_cb = m_status_callback;
+        xSemaphoreGive(m_mutex);
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::FAILED, "Configuration failed");
         }
         return ret;
     }
@@ -354,9 +387,12 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
     ret = esp_wifi_connect();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to connect: %s", esp_err_to_name(ret));
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_status = WifiConnectionStatus::FAILED;
-        if (m_status_callback) {
-            m_status_callback(m_status, "Connection failed");
+        status_cb = m_status_callback;
+        xSemaphoreGive(m_mutex);
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::FAILED, "Connection failed");
         }
         return ret;
     }
@@ -373,50 +409,68 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
         return ESP_OK;
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGE(TAG, "Failed to connect to Wi-Fi network: %s", ssid.c_str());
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_status = WifiConnectionStatus::FAILED;
-        if (m_status_callback) {
-            m_status_callback(m_status, "Authentication failed");
+        status_cb = m_status_callback;
+        xSemaphoreGive(m_mutex);
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::FAILED, "Authentication failed");
         }
         return ESP_FAIL;
     } else {
         ESP_LOGE(TAG, "Connection timeout");
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_status = WifiConnectionStatus::FAILED;
-        if (m_status_callback) {
-            m_status_callback(m_status, "Connection timeout");
+        status_cb = m_status_callback;
+        xSemaphoreGive(m_mutex);
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::FAILED, "Connection timeout");
         }
         return ESP_ERR_TIMEOUT;
     }
 }
 
 esp_err_t WirelessManager::disconnect() {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
 
     ESP_LOGI(TAG, "Disconnecting from Wi-Fi...");
 
+    xSemaphoreGive(m_mutex);
+    
     esp_err_t ret = esp_wifi_disconnect();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to disconnect: %s", esp_err_to_name(ret));
         return ret;
     }
 
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_status = WifiConnectionStatus::DISCONNECTED;
     m_current_ssid.clear();
     m_current_ip.clear();
     m_current_rssi = 0;
 
-    if (m_status_callback) {
-        m_status_callback(m_status, "Disconnected");
+    StatusCallback status_cb = m_status_callback;
+    xSemaphoreGive(m_mutex);
+    
+    if (status_cb) {
+        status_cb(WifiConnectionStatus::DISCONNECTED, "Disconnected");
     }
 
     return ESP_OK;
 }
 
 esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* config) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -425,13 +479,16 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
     if (mode == IpConfigMode::STATIC) {
         if (config == nullptr) {
             ESP_LOGE(TAG, "Static IP config cannot be null");
+            xSemaphoreGive(m_mutex);
             return ESP_ERR_INVALID_ARG;
         }
 
         m_static_config = *config;
+        esp_netif_t* netif = m_sta_netif;
+        xSemaphoreGive(m_mutex);
 
         // Stop DHCP client
-        esp_err_t ret = esp_netif_dhcpc_stop(m_sta_netif);
+        esp_err_t ret = esp_netif_dhcpc_stop(netif);
         if (ret != ESP_OK && ret != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
             ESP_LOGE(TAG, "Failed to stop DHCP client: %s", esp_err_to_name(ret));
             return ret;
@@ -443,7 +500,7 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
         esp_netif_str_to_ip4(config->gateway.c_str(), &ip_info.gw);
         esp_netif_str_to_ip4(config->netmask.c_str(), &ip_info.netmask);
 
-        ret = esp_netif_set_ip_info(m_sta_netif, &ip_info);
+        ret = esp_netif_set_ip_info(netif, &ip_info);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to set IP info: %s", esp_err_to_name(ret));
             return ret;
@@ -454,7 +511,7 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
             esp_netif_dns_info_t dns_info = {};
             dns_info.ip.type = ESP_IPADDR_TYPE_V4;
             esp_netif_str_to_ip4(config->dns1.c_str(), &dns_info.ip.u_addr.ip4);
-            ret = esp_netif_set_dns_info(m_sta_netif, ESP_NETIF_DNS_MAIN, &dns_info);
+            ret = esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info);
             if (ret != ESP_OK) {
                 ESP_LOGW(TAG, "Failed to set DNS1: %s", esp_err_to_name(ret));
             }
@@ -464,7 +521,7 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
             esp_netif_dns_info_t dns_info = {};
             dns_info.ip.type = ESP_IPADDR_TYPE_V4;
             esp_netif_str_to_ip4(config->dns2.c_str(), &dns_info.ip.u_addr.ip4);
-            ret = esp_netif_set_dns_info(m_sta_netif, ESP_NETIF_DNS_BACKUP, &dns_info);
+            ret = esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info);
             if (ret != ESP_OK) {
                 ESP_LOGW(TAG, "Failed to set DNS2: %s", esp_err_to_name(ret));
             }
@@ -472,8 +529,11 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
 
         ESP_LOGI(TAG, "Static IP configured: %s", config->ip.c_str());
     } else {
+        esp_netif_t* netif = m_sta_netif;
+        xSemaphoreGive(m_mutex);
+        
         // Start DHCP client
-        esp_err_t ret = esp_netif_dhcpc_start(m_sta_netif);
+        esp_err_t ret = esp_netif_dhcpc_start(netif);
         if (ret != ESP_OK && ret != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED) {
             ESP_LOGE(TAG, "Failed to start DHCP client: %s", esp_err_to_name(ret));
             return ret;
@@ -486,31 +546,50 @@ esp_err_t WirelessManager::setIpConfig(IpConfigMode mode, const StaticIpConfig* 
 }
 
 WifiConnectionStatus WirelessManager::getStatus() const {
-    return m_status;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    WifiConnectionStatus status = m_status;
+    xSemaphoreGive(m_mutex);
+    return status;
 }
 
 bool WirelessManager::isConnected() const {
-    return m_status == WifiConnectionStatus::CONNECTED;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    bool connected = (m_status == WifiConnectionStatus::CONNECTED);
+    xSemaphoreGive(m_mutex);
+    return connected;
 }
 
 std::string WirelessManager::getCurrentSsid() const {
-    return m_current_ssid;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string ssid = m_current_ssid;
+    xSemaphoreGive(m_mutex);
+    return ssid;
 }
 
 std::string WirelessManager::getIpAddress() const {
-    return m_current_ip;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string ip = m_current_ip;
+    xSemaphoreGive(m_mutex);
+    return ip;
 }
 
 int8_t WirelessManager::getRssi() const {
-    return m_current_rssi;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    int8_t rssi = m_current_rssi;
+    xSemaphoreGive(m_mutex);
+    return rssi;
 }
 
 void WirelessManager::setStatusCallback(StatusCallback callback) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_status_callback = callback;
+    xSemaphoreGive(m_mutex);
 }
 
 void WirelessManager::setIpCallback(IpCallback callback) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_ip_callback = callback;
+    xSemaphoreGive(m_mutex);
 }
 
 void WirelessManager::wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -522,15 +601,21 @@ void WirelessManager::wifi_event_handler(void* arg, esp_event_base_t event_base,
     } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
         ESP_LOGI(TAG, "Wi-Fi connected");
         wifi_event_sta_connected_t* event = static_cast<wifi_event_sta_connected_t*>(event_data);
+        xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
         manager->m_current_ssid = std::string(reinterpret_cast<char*>(event->ssid), event->ssid_len);
+        xSemaphoreGive(manager->m_mutex);
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "Wi-Fi disconnected");
+        xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
         manager->m_status = WifiConnectionStatus::DISCONNECTED;
         manager->m_current_ip.clear();
         manager->m_current_rssi = 0;
         
-        if (manager->m_status_callback) {
-            manager->m_status_callback(manager->m_status, "Disconnected");
+        StatusCallback status_cb = manager->m_status_callback;
+        xSemaphoreGive(manager->m_mutex);
+        
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::DISCONNECTED, "Disconnected");
         }
         
         xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
@@ -552,14 +637,11 @@ void WirelessManager::ip_event_handler(void* arg, esp_event_base_t event_base,
         snprintf(mask_str, sizeof(mask_str), IPSTR, IP2STR(&event->ip_info.netmask));
         snprintf(gw_str, sizeof(gw_str), IPSTR, IP2STR(&event->ip_info.gw));
         
+        xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
         manager->m_current_ip = ip_str;
         manager->m_current_netmask = mask_str;
         manager->m_current_gateway = gw_str;
         manager->m_status = WifiConnectionStatus::CONNECTED;
-        
-        ESP_LOGI(TAG, "Got IP: %s", ip_str);
-        ESP_LOGI(TAG, "Netmask: %s", mask_str);
-        ESP_LOGI(TAG, "Gateway: %s", gw_str);
         
         // Get RSSI
         wifi_ap_record_t ap_info;
@@ -567,12 +649,20 @@ void WirelessManager::ip_event_handler(void* arg, esp_event_base_t event_base,
             manager->m_current_rssi = ap_info.rssi;
         }
         
-        if (manager->m_status_callback) {
-            manager->m_status_callback(manager->m_status, "Connected");
+        StatusCallback status_cb = manager->m_status_callback;
+        IpCallback ip_cb = manager->m_ip_callback;
+        xSemaphoreGive(manager->m_mutex);
+        
+        ESP_LOGI(TAG, "Got IP: %s", ip_str);
+        ESP_LOGI(TAG, "Netmask: %s", mask_str);
+        ESP_LOGI(TAG, "Gateway: %s", gw_str);
+        
+        if (status_cb) {
+            status_cb(WifiConnectionStatus::CONNECTED, "Connected");
         }
         
-        if (manager->m_ip_callback) {
-            manager->m_ip_callback(ip_str, mask_str, gw_str);
+        if (ip_cb) {
+            ip_cb(ip_str, mask_str, gw_str);
         }
         
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);

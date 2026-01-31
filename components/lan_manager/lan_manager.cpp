@@ -24,15 +24,23 @@ LanManager::LanManager()
     , m_eth_event_handler(nullptr)
     , m_ip_event_handler(nullptr)
 {
+    m_mutex = xSemaphoreCreateMutex();
 }
 
 LanManager::~LanManager() {
     deinit();
+    if (m_mutex) {
+        vSemaphoreDelete(m_mutex);
+        m_mutex = nullptr;
+    }
 }
 
 esp_err_t LanManager::init() {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (m_initialized) {
         ESP_LOGW(TAG, "Already initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_OK;
     }
 
@@ -131,11 +139,15 @@ esp_err_t LanManager::init() {
     m_initialized = true;
     ESP_LOGI(TAG, "LAN Manager initialized successfully (MAC: %s)", m_mac_address.c_str());
     
+    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
 esp_err_t LanManager::deinit() {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
+        xSemaphoreGive(m_mutex);
         return ESP_OK;
     }
 
@@ -160,12 +172,16 @@ esp_err_t LanManager::deinit() {
     m_eth_handle = nullptr;
     
     ESP_LOGI(TAG, "LAN Manager deinitialized");
+    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
 esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig* config) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
     if (!m_initialized) {
         ESP_LOGE(TAG, "Not initialized");
+        xSemaphoreGive(m_mutex);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -174,6 +190,7 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
     if (mode == EthIpConfigMode::STATIC) {
         if (config == nullptr) {
             ESP_LOGE(TAG, "Static IP config cannot be null");
+            xSemaphoreGive(m_mutex);
             return ESP_ERR_INVALID_ARG;
         }
 
@@ -183,6 +200,7 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
         esp_err_t ret = esp_netif_dhcpc_stop(m_eth_netif);
         if (ret != ESP_OK && ret != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
             ESP_LOGE(TAG, "Failed to stop DHCP client: %s", esp_err_to_name(ret));
+            xSemaphoreGive(m_mutex);
             return ret;
         }
 
@@ -195,6 +213,7 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
         ret = esp_netif_set_ip_info(m_eth_netif, &ip_info);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to set IP info: %s", esp_err_to_name(ret));
+            xSemaphoreGive(m_mutex);
             return ret;
         }
 
@@ -235,58 +254,87 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
         esp_err_t ret = esp_netif_dhcpc_start(m_eth_netif);
         if (ret != ESP_OK && ret != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED) {
             ESP_LOGE(TAG, "Failed to start DHCP client: %s", esp_err_to_name(ret));
+            xSemaphoreGive(m_mutex);
             return ret;
         }
 
         ESP_LOGI(TAG, "DHCP enabled");
     }
 
+    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
 EthConnectionStatus LanManager::getStatus() const {
-    return m_status;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    EthConnectionStatus status = m_status;
+    xSemaphoreGive(m_mutex);
+    return status;
 }
 
 bool LanManager::isConnected() const {
-    return m_status == EthConnectionStatus::CONNECTED;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    bool connected = (m_status == EthConnectionStatus::CONNECTED);
+    xSemaphoreGive(m_mutex);
+    return connected;
 }
 
 std::string LanManager::getIpAddress() const {
-    return m_current_ip;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string ip = m_current_ip;
+    xSemaphoreGive(m_mutex);
+    return ip;
 }
 
 std::string LanManager::getNetmask() const {
-    return m_current_netmask;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string netmask = m_current_netmask;
+    xSemaphoreGive(m_mutex);
+    return netmask;
 }
 
 std::string LanManager::getGateway() const {
-    return m_current_gateway;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string gateway = m_current_gateway;
+    xSemaphoreGive(m_mutex);
+    return gateway;
 }
 
 std::string LanManager::getMacAddress() const {
-    return m_mac_address;
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string mac = m_mac_address;
+    xSemaphoreGive(m_mutex);
+    return mac;
 }
 
 void LanManager::setStatusCallback(StatusCallback callback) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_status_callback = callback;
+    xSemaphoreGive(m_mutex);
 }
 
 void LanManager::setIpCallback(IpCallback callback) {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
     m_ip_callback = callback;
+    xSemaphoreGive(m_mutex);
 }
 
 void LanManager::eth_event_handler(void* arg, esp_event_base_t event_base,
                                    int32_t event_id, void* event_data) {
     LanManager* manager = static_cast<LanManager*>(arg);
+    xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
 
     switch (event_id) {
         case ETHERNET_EVENT_CONNECTED: {
             ESP_LOGI(TAG, "Ethernet Link Up");
             manager->m_status = EthConnectionStatus::LINK_UP;
             
-            if (manager->m_status_callback) {
-                manager->m_status_callback(manager->m_status, "Link up");
+            StatusCallback status_cb = manager->m_status_callback;
+            EthConnectionStatus status = manager->m_status;
+            xSemaphoreGive(manager->m_mutex);
+            
+            if (status_cb) {
+                status_cb(status, "Link up");
             }
             
             uint8_t mac_addr[6];
@@ -294,7 +342,7 @@ void LanManager::eth_event_handler(void* arg, esp_event_base_t event_base,
             esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, mac_addr);
             ESP_LOGI(TAG, "Ethernet MAC: %02x:%02x:%02x:%02x:%02x:%02x",
                      mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-            break;
+            return;
         }
         
         case ETHERNET_EVENT_DISCONNECTED:
@@ -304,31 +352,50 @@ void LanManager::eth_event_handler(void* arg, esp_event_base_t event_base,
             manager->m_current_netmask.clear();
             manager->m_current_gateway.clear();
             
-            if (manager->m_status_callback) {
-                manager->m_status_callback(manager->m_status, "Link down");
+            {
+                StatusCallback status_cb = manager->m_status_callback;
+                EthConnectionStatus status = manager->m_status;
+                xSemaphoreGive(manager->m_mutex);
+                
+                if (status_cb) {
+                    status_cb(status, "Link down");
+                }
             }
-            break;
+            return;
             
         case ETHERNET_EVENT_START:
             ESP_LOGI(TAG, "Ethernet Started");
             manager->m_status = EthConnectionStatus::DISCONNECTED;
             
-            if (manager->m_status_callback) {
-                manager->m_status_callback(manager->m_status, "Started");
+            {
+                StatusCallback status_cb = manager->m_status_callback;
+                EthConnectionStatus status = manager->m_status;
+                xSemaphoreGive(manager->m_mutex);
+                
+                if (status_cb) {
+                    status_cb(status, "Started");
+                }
             }
-            break;
+            return;
             
         case ETHERNET_EVENT_STOP:
             ESP_LOGI(TAG, "Ethernet Stopped");
             manager->m_status = EthConnectionStatus::DISCONNECTED;
             
-            if (manager->m_status_callback) {
-                manager->m_status_callback(manager->m_status, "Stopped");
+            {
+                StatusCallback status_cb = manager->m_status_callback;
+                EthConnectionStatus status = manager->m_status;
+                xSemaphoreGive(manager->m_mutex);
+                
+                if (status_cb) {
+                    status_cb(status, "Stopped");
+                }
             }
-            break;
+            return;
             
         default:
-            break;
+            xSemaphoreGive(manager->m_mutex);
+            return;
     }
 }
 
@@ -345,22 +412,28 @@ void LanManager::ip_event_handler(void* arg, esp_event_base_t event_base,
         snprintf(mask_str, sizeof(mask_str), IPSTR, IP2STR(&ip_info->netmask));
         snprintf(gw_str, sizeof(gw_str), IPSTR, IP2STR(&ip_info->gw));
 
+        xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
         manager->m_current_ip = ip_str;
         manager->m_current_netmask = mask_str;
         manager->m_current_gateway = gw_str;
         manager->m_status = EthConnectionStatus::CONNECTED;
+
+        StatusCallback status_cb = manager->m_status_callback;
+        IpCallback ip_cb = manager->m_ip_callback;
+        EthConnectionStatus status = manager->m_status;
+        xSemaphoreGive(manager->m_mutex);
 
         ESP_LOGI(TAG, "Ethernet Got IP Address");
         ESP_LOGI(TAG, "IP: %s", ip_str);
         ESP_LOGI(TAG, "Netmask: %s", mask_str);
         ESP_LOGI(TAG, "Gateway: %s", gw_str);
 
-        if (manager->m_status_callback) {
-            manager->m_status_callback(manager->m_status, "Connected");
+        if (status_cb) {
+            status_cb(status, "Connected");
         }
 
-        if (manager->m_ip_callback) {
-            manager->m_ip_callback(ip_str, mask_str, gw_str);
+        if (ip_cb) {
+            ip_cb(ip_str, mask_str, gw_str);
         }
     }
 }

@@ -6,6 +6,8 @@
 #include "esp_err.h"
 #include "esp_wifi_types.h"
 #include "esp_netif_types.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 /**
  * @brief Wi-Fi network information structure
@@ -231,4 +233,6 @@ private:
         WifiScanCallback callback;
         uint16_t max_results;
     };
+    
+    SemaphoreHandle_t m_mutex;
 };

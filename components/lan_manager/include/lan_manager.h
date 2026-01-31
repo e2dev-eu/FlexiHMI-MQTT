@@ -5,6 +5,8 @@
 #include "esp_err.h"
 #include "esp_eth.h"
 #include "esp_netif_types.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 /**
  * @brief Ethernet connection status
@@ -172,4 +174,6 @@ private:
     esp_eth_handle_t m_eth_handle;
     esp_event_handler_instance_t m_eth_event_handler;
     esp_event_handler_instance_t m_ip_event_handler;
+    
+    SemaphoreHandle_t m_mutex;
 };
