@@ -114,6 +114,6 @@ void BarWidget::updateValue(int value) {
     if (m_lvgl_obj && lv_obj_is_valid(m_lvgl_obj)) {
         m_value = value;
         lv_bar_set_value(m_lvgl_obj, m_value, LV_ANIM_ON);
-        ESP_LOGI(TAG, "Updated bar %s to value: %d", m_id.c_str(), m_value);
+        ESP_LOGD(TAG, "Updated bar %s to value: %d", m_id.c_str(), m_value);
     }
 }

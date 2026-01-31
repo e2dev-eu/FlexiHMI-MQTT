@@ -123,6 +123,6 @@ void LEDWidget::updateBrightness(uint8_t brightness) {
             lv_led_set_brightness(m_lvgl_obj, brightness);
         }
         
-        ESP_LOGI(TAG, "Updated LED %s to brightness: %d", m_id.c_str(), m_brightness);
+        ESP_LOGD(TAG, "Updated LED %s to brightness: %d", m_id.c_str(), m_brightness);
     }
 }

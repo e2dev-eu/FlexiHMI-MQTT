@@ -190,6 +190,6 @@ void DropdownWidget::updateSelection(uint16_t selected) {
         // Keep flag set for a brief moment to ensure event callback sees it
         lv_timer_handler();  // Process any pending events
         m_updating_from_mqtt = false;
-        ESP_LOGI(TAG, "Updated dropdown %s to index: %d", m_id.c_str(), m_selected);
+        ESP_LOGD(TAG, "Updated dropdown %s to index: %d", m_id.c_str(), m_selected);
     }
 }

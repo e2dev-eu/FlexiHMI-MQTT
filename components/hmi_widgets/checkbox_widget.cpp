@@ -149,6 +149,6 @@ void CheckboxWidget::updateState(bool checked) {
             lv_obj_clear_state(m_lvgl_obj, LV_STATE_CHECKED);
         }
         m_updating_from_mqtt = false;
-        ESP_LOGI(TAG, "Updated checkbox %s to: %s", m_id.c_str(), checked ? "checked" : "unchecked");
+        ESP_LOGD(TAG, "Updated checkbox %s to: %s", m_id.c_str(), checked ? "checked" : "unchecked");
     }
 }

@@ -96,6 +96,6 @@ void SpinnerWidget::updateVisibility(bool visible) {
         } else {
             lv_obj_add_flag(m_lvgl_obj, LV_OBJ_FLAG_HIDDEN);
         }
-        ESP_LOGI(TAG, "Updated spinner %s visibility: %s", m_id.c_str(), visible ? "visible" : "hidden");
+        ESP_LOGD(TAG, "Updated spinner %s visibility: %s", m_id.c_str(), visible ? "visible" : "hidden");
     }
 }

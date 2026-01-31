@@ -137,7 +137,7 @@ void SwitchWidget::updateState(bool new_state) {
     
     m_updating_from_mqtt = false;
     
-    ESP_LOGI(TAG, "Updated switch %s: %s", m_id.c_str(), new_state ? "ON" : "OFF");
+    ESP_LOGD(TAG, "Updated switch %s: %s", m_id.c_str(), new_state ? "ON" : "OFF");
 }
 
 void SwitchWidget::switch_event_cb(lv_event_t* e) {
