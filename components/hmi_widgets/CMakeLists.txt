@@ -22,4 +22,5 @@ idf_component_register(
         freertos
         json
         mqtt_manager
+        mbedtls
 )

@@ -9,68 +9,82 @@
       "w": 1004,
       "h": 40,
       "properties": {
-        "text": "Image Widget Example",
+        "text": "Image Widget Example - SD Card & Base64",
         "align": "center",
         "font_size": 24
       }
     },
     {
-      "id": "image1",
-      "type": "image",
-      "x": 50,
-      "y": 80,
-      "w": 512,
-      "h": 512,
+      "id": "subtitle",
+      "type": "label",
+      "x": 10,
+      "y": 50,
+      "w": 1004,
+      "h": 25,
       "properties": {
-        "image_path": "/sdcard/lenna512.png",
-        "mqtt_topic": "demo/image1"
+        "text": "Left: Load from SD card | Right: Load from Base64 via MQTT",
+        "align": "center",
+        "color": "#AAAAAA"
       }
     },
     {
-      "id": "image1_label",
+      "id": "image_sdcard",
+      "type": "image",
+      "x": 50,
+      "y": 100,
+      "w": 256,
+      "h": 256,
+      "properties": {
+        "image_path": "/sdcard/lena_256.jpg",
+        "mqtt_topic": "demo/image_sdcard"
+      }
+    },
+    {
+      "id": "sdcard_label",
       "type": "label",
       "x": 50,
-      "y": 346,
+      "y": 370,
       "w": 256,
       "h": 30,
       "properties": {
-        "text": "Lena (256x256)",
-        "align": "center"
+        "text": "SD Card Image",
+        "align": "center",
+        "font_size": 16
       }
     },
     {
-      "id": "image2",
+      "id": "image_base64",
       "type": "image",
-      "x": 150,
-      "y": 80,
-      "w": 512,
-      "h": 512,
+      "x": 350,
+      "y": 100,
+      "w": 256,
+      "h": 256,
       "properties": {
-        "image_path": "/sdcard/nosmoking.png",
-        "mqtt_topic": "demo/image2"
+        "mqtt_topic": "demo/image_base64"
       }
     },
     {
-      "id": "image2_label",
+      "id": "base64_label",
       "type": "label",
       "x": 350,
-      "y": 346,
+      "y": 370,
       "w": 256,
       "h": 30,
       "properties": {
-        "text": "Lena Copy",
-        "align": "center"
+        "text": "Base64 Image (via MQTT)",
+        "align": "center",
+        "font_size": 16
       }
     },
     {
       "id": "controls_label",
       "type": "label",
       "x": 50,
-      "y": 400,
+      "y": 420,
       "w": 556,
       "h": 25,
       "properties": {
-        "text": "Control Images via MQTT:",
+        "text": "SD Card Controls (Left Image):",
         "color": "#AAAAAA"
       }
     },
@@ -78,39 +92,51 @@
       "id": "btn_lena",
       "type": "button",
       "x": 50,
-      "y": 440,
+      "y": 455,
       "w": 160,
       "h": 50,
       "properties": {
         "text": "Lena",
-        "mqtt_topic": "demo/image1",
-        "mqtt_payload": "/sdcard/lenna512.png"
+        "mqtt_topic": "demo/image_sdcard",
+        "mqtt_payload": "/sdcard/lena_256.jpg"
       }
     },
     {
       "id": "btn_logo",
       "type": "button",
       "x": 223,
-      "y": 440,
+      "y": 455,
       "w": 160,
       "h": 50,
       "properties": {
-        "text": "No Smoking",
-        "mqtt_topic": "demo/image1",
-        "mqtt_payload": "/sdcard/nosmoking.png"
+        "text": "Logo",
+        "mqtt_topic": "demo/image_sdcard",
+        "mqtt_payload": "/sdcard/logo.png"
       }
     },
     {
       "id": "btn_photo",
       "type": "button",
       "x": 396,
-      "y": 440,
+      "y": 455,
       "w": 160,
       "h": 50,
       "properties": {
-        "text": "Potions",
-        "mqtt_topic": "demo/image1",
-        "mqtt_payload": "/sdcard/potions.png"
+        "text": "Photo",
+        "mqtt_topic": "demo/image_sdcard",
+        "mqtt_payload": "/sdcard/photo.jpg"
+      }
+    },
+    {
+      "id": "base64_info",
+      "type": "label",
+      "x": 50,
+      "y": 520,
+      "w": 556,
+      "h": 60,
+      "properties": {
+        "text": "To send Base64 image:\n1. Encode: python3 encode_image_to_base64.py image.jpg\n2. Send: mosquitto_pub -t demo/image_base64 -m '<base64_data>'",
+        "color": "#888888"
       }
     }
   ]

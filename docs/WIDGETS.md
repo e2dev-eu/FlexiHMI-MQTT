@@ -798,21 +798,47 @@ The following widgets could be implemented based on LVGL components:
 
 ### 16. Image Widget
 
-**Description:** Display static or dynamic images.
+**Description:** Display static or dynamic images from SD card or base64-encoded data.
 
 **LVGL Component:** `lv_image` (formerly `lv_img`)
 
 **Implementation Concept:**
-- Display images from flash or MQTT
-- Support for PNG, JPG, BMP
-- MQTT topic for image URL or base64
-- Zoom and rotation support
+- Load images from SD card filesystem
+- Receive base64-encoded images via MQTT
+- Support for PNG, JPEG, BMP, GIF
+- Automatic format detection
+- Memory-efficient handling
+- ESP32-P4 hardware JPEG decoder support
 
 **MQTT Data Format:**
 - **Subscribes to:** `mqtt_topic`
-- **Expected payload:** File path (e.g., `"/spiffs/image.png"`) or base64-encoded image data
-- **Example:** `"data:image/png;base64,iVBORw0KGgo..."` or `"http://server/image.jpg"`
-- **Does not publish**
+- **Expected payload:** 
+  - SD card file path: `"/sdcard/image.jpg"` (automatically converted to LVGL path `S:/image.jpg`)
+  - Base64-encoded image data: Raw base64 string (e.g., `/9j/4AAQSkZJRgABAQAAAQABAAD...`)
+- **Does not publish** (display only)
+
+**Properties:**
+- `image_path`: Initial image path on SD card (optional)
+- `mqtt_topic`: MQTT topic to subscribe for dynamic image updates
+
+**Image Loading Methods:**
+
+1. **SD Card Loading:**
+   - Store images on SD card (e.g., `/sdcard/logo.png`)
+   - Reference in JSON config or send path via MQTT
+   - Efficient for static images or pre-loaded content
+   - No memory overhead - images loaded directly from filesystem
+
+2. **Base64 Loading:**
+   - Encode image: `python3 encode_image_to_base64.py image.jpg`
+   - Send via MQTT: `mosquitto_pub -t "demo/image" -m "<base64_data>"`
+   - Ideal for dynamic content, small images, or remote updates
+   - Image data decoded to memory (limited by available RAM)
+
+**SD Card Setup:**
+- SD card mounted at `/sdcard` (configured in main.cpp)
+- LVGL filesystem maps `/sdcard` → `S:` drive
+- Supported formats: JPEG (hardware accelerated), PNG, BMP, GIF
 
 **JSON Example:**
 ```json
@@ -824,13 +850,33 @@ The following widgets could be implemented based on LVGL components:
   "w": 320,
   "h": 240,
   "properties": {
-    "src": "/spiffs/logo.png",
-    "mqtt_topic": "camera/snapshot",
-    "zoom": 256,
-    "angle": 0
+    "image_path": "/sdcard/logo.png",
+    "mqtt_topic": "camera/snapshot"
   }
 }
 ```
+
+**Usage Examples:**
+
+```bash
+# Load image from SD card via MQTT
+mosquitto_pub -t "camera/snapshot" -m "/sdcard/photo.jpg"
+
+# Load base64-encoded image via MQTT
+# First, encode your image
+python3 examples/encode_image_to_base64.py my_image.jpg
+
+# Then send the base64 output
+mosquitto_pub -t "camera/snapshot" -m "<paste_base64_here>"
+```
+
+**Notes:**
+- Small images (<100KB) work best for base64 transmission over MQTT
+- Large images should be stored on SD card for performance
+- Base64 encoding increases data size by ~33%
+- ESP32-P4 hardware JPEG decoder provides fast rendering
+- LVGL automatically detects image format from data
+
 
 ---
 
