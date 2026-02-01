@@ -35,7 +35,7 @@
       "w": 256,
       "h": 256,
       "properties": {
-        "image_path": "/sdcard/lena_256.jpg",
+        "image_path": "/sdcard/lenna256.png",
         "mqtt_topic": "demo/image_sdcard"
       }
     },
@@ -98,7 +98,7 @@
       "properties": {
         "text": "Lena",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/lena_256.jpg"
+        "mqtt_payload": "/sdcard/lenna256.png"
       }
     },
     {
@@ -122,9 +122,9 @@
       "w": 160,
       "h": 50,
       "properties": {
-        "text": "Photo",
+        "text": "IoT",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/photo.jpg"
+        "mqtt_payload": "/sdcard/IoT.png"
       }
     },
     {

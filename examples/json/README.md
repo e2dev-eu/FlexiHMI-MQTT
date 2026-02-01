@@ -45,13 +45,14 @@ Sliders and progress bars for value adjustment.
 - MQTT bidirectional control
 
 #### [gauge_example.json](gauge_example.json)
-Analog-style circular gauges.
+Analog-style circular gauges with standardized range properties.
 
 **Features:**
-- Speed gauge (0-200 km/h)
-- Temperature gauge (-20 to 120°C)
+- Speed gauge (0-200 range with `min`/`max` properties)
+- Temperature gauge (-20 to 120 range)
 - Interactive sliders to control gauge values
 - Real-time MQTT updates
+- Demonstrates consistent property naming across all range-based widgets
 
 #### [image_example.json](image_example.json)
 Image widgets demonstrating SD card and base64 image loading.
@@ -120,6 +121,199 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f complete_demo.json
 ./load_config.sh <broker_ip> complete_demo.json
 ```
 
+### Image Widget with Base64 - Step by Step
+
+#### Method 1: Using Base64 in Initial Configuration
+
+**Step 1:** Encode your image to base64
+```bash
+cd examples
+python3 encode_image_to_base64.py images/your_image.png
+# This creates images/your_image.png.base64.txt
+```
+
+**Step 2:** Copy the base64 string (open the .base64.txt file)
+
+**Step 3:** Create or modify your JSON config with the base64 data:
+```json
+{
+  "version": 1,
+  "widgets": [
+    {
+      "type": "image",
+      "id": "my_image",
+      "x": 100,
+      "y": 100,
+      "w": 128,
+      "h": 128,
+      "properties": {
+        "image_path": "iVBORw0KGgoAAAANSUhEUgAA...YOUR_BASE64_DATA...",
+        "mqtt_topic": "demo/image1"
+      }
+    }
+  ]
+}
+```
+
+**Step 4:** Load the configuration
+```bash
+mosquitto_pub -h 192.168.100.200 -t "hmi/config" -f your_config.json
+```
+
+#### Method 2: Sending Base64 via MQTT (Dynamic Updates)
+
+**Step 1:** Encode your image
+```bash
+cd examples
+python3 encode_image_to_base64.py images/logo.png
+# Creates images/logo.png.base64.txt
+```
+
+**Step 2:** Send base64 data via MQTT (replaces existing image)
+```bash
+# Load base64 data into variable
+BASE64_DATA=$(cat images/logo.png.base64.txt)
+
+# Send to image widget's MQTT topic
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_DATA"
+```
+
+**Step 3:** Switch between different images dynamically
+```bash
+# Display image A
+BASE64_A=$(cat images/imageA.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_A"
+
+# Display image B
+BASE64_B=$(cat images/imageB.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_B"
+
+# Or use SD card path
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/photo.jpg"
+```
+
+#### Method 3: Batch Processing Multiple Images
+
+**Script to encode multiple images:**
+```bash
+#!/bin/bash
+cd examples/images
+
+for img in *.png *.jpg; do
+  echo "Encoding $img..."
+  python3 ../encode_image_to_base64.py "$img"
+done
+
+echo "All images encoded!"
+ls -lh *.base64.txt
+```
+
+**Send multiple images to different widgets:**
+```bash
+# Define your MQTT broker
+BROKER="192.168.100.200"
+
+# Send to image widget 1
+BASE64_1=$(cat examples/images/icon1.png.base64.txt)
+mosquitto_pub -h $BROKER -t "demo/image1" -m "$BASE64_1"
+
+# Send to image widget 2
+BASE64_2=$(cat examples/images/icon2.png.base64.txt)
+mosquitto_pub -h $BROKER -t "demo/image2" -m "$BASE64_2"
+
+# Send to image widget 3
+BASE64_3=$(cat examples/images/icon3.png.base64.txt)
+mosquitto_pub -h $BROKER -t "demo/image3" -m "$BASE64_3"
+```
+
+#### Best Practices for Base64 Images
+
+1. **Image Size Recommendations:**
+   - Small icons: 32x32 to 64x64 (< 5 KB)
+   - Medium images: 128x128 (< 20 KB)
+   - Large images: 256x256 (< 50 KB)
+   - Max recommended: 300x300 (< 100 KB)
+
+2. **Format Selection:**
+   - **PNG:** Best for icons, logos, transparency (larger file size)
+   - **JPEG:** Best for photos, no transparency (smaller file size)
+   - **GIF:** Animated images supported
+
+3. **Optimize Before Encoding:**
+```bash
+# Install ImageMagick if needed
+sudo apt-get install imagemagick
+
+# Resize and optimize
+convert input.jpg -resize 128x128 -quality 85 output.jpg
+python3 encode_image_to_base64.py output.jpg
+```
+
+4. **Testing Your Images:**
+```bash
+# Check encoded file size
+ls -lh images/*.base64.txt
+
+# Quick test - display in image widget
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -f images/test.png.base64.txt
+```
+
+#### Troubleshooting Base64 Images
+
+**Image not displaying?**
+```bash
+# 1. Check file size (should be < 100KB for base64)
+ls -lh images/yourimage.png
+
+# 2. Verify base64 encoding worked
+head -c 100 images/yourimage.png.base64.txt
+# Should see base64 characters: A-Z, a-z, 0-9, +, /, =
+
+# 3. Test with a known-good image
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/test.jpg"
+
+# 4. Check MQTT message size
+wc -c images/yourimage.png.base64.txt
+# Should be under 100000 bytes (100KB)
+```
+
+**Payload too large?**
+```bash
+# Option 1: Reduce image resolution
+convert large.png -resize 128x128 small.png
+
+# Option 2: Increase JPEG compression
+convert photo.jpg -quality 75 compressed.jpg
+
+# Option 3: Use SD card instead
+cp yourimage.jpg /path/to/sdcard/
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/yourimage.jpg"
+```
+
+#### Complete Example Workflow
+
+```bash
+# 1. Navigate to examples directory
+cd /path/to/ESP32P4-MQTT-Panel/examples
+
+# 2. Prepare your image (resize if needed)
+convert my_logo.png -resize 128x128 images/logo_small.png
+
+# 3. Encode to base64
+python3 encode_image_to_base64.py images/logo_small.png
+
+# 4. Verify encoding
+echo "File size: $(wc -c < images/logo_small.png.base64.txt) bytes"
+echo "First 50 chars: $(head -c 50 images/logo_small.png.base64.txt)"
+
+# 5. Send to device
+BASE64_DATA=$(cat images/logo_small.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_DATA"
+
+# 6. Watch serial monitor to confirm
+# Should see: "Successfully decoded XXXX bytes of image data"
+```
+
 ### Testing Individual Widgets
 
 Start with the basic examples to understand each widget type:
@@ -156,8 +350,6 @@ Each example uses specific MQTT topics for control. Common patterns:
 
 For detailed documentation on each widget type, see:
 - [WIDGETS.md](../../docs/WIDGETS.md) - Complete widget documentation
-- [IMAGE_WIDGET_README.md](../docs/IMAGE_WIDGET_README.md) - Image widget guide
-- [BASE64_IMAGE_TESTING.md](../docs/BASE64_IMAGE_TESTING.md) - Image testing guide
 
 ## JSON Structure
 
@@ -183,6 +375,32 @@ All configuration files follow this structure:
 }
 ```
 
+### Property Naming Conventions
+
+All widgets follow consistent property naming:
+- **Range properties:** `min`, `max` (Slider, Arc, Bar, Gauge)
+- **MQTT properties:** `mqtt_topic`, `mqtt_payload`, `mqtt_retained`
+- **Color properties:** `color`, `bg_color`, `text_color`, etc.
+- **Position/Size:** `x`, `y`, `w`, `h` (all widgets)
+
+**Example - Gauge with Range:**
+```json
+{
+  "type": "gauge",
+  "id": "speedometer",
+  "x": 100,
+  "y": 100,
+  "w": 250,
+  "h": 250,
+  "properties": {
+    "min": 0,
+    "max": 200,
+    "value": 75,
+    "mqtt_topic": "vehicle/speed"
+  }
+}
+```
+
 ## Tips
 
 1. **Start Simple:** Begin with single-widget examples before complex UIs
@@ -192,6 +410,8 @@ All configuration files follow this structure:
 5. **Positioning:** ESP32-P4 Function EV Board display is 1024x600 pixels
 6. **Colors:** Use hex colors (e.g., `#FF0000` for red) for consistent styling
 7. **Base64 Images:** Keep under 100KB for best performance (see image widget docs)
+8. **Property Names:** All range-based widgets (Slider, Arc, Bar, Gauge) use `min`/`max` properties consistently
+9. **Buffer Size:** System supports JSON configs up to 512KB (standard) or 1MB (authenticated)
 
 ## Creating Your Own
 
@@ -204,7 +424,10 @@ All configuration files follow this structure:
 
 - Simple examples: ~1-3 KB
 - Complex demos: ~15-25 KB
-- Interactive demo: ~50 KB (with base64 images: 50-150 KB)
+**MQTT Buffer Capacity:**
+- Standard configurations: Up to 512 KB
+- Authenticated connections: Up to 1 MB
+- Automatic chunked message handling for large configs
 
 Note: MQTT buffers are configured for up to 512 KB messages.
 
@@ -258,4 +481,3 @@ See `complete_demo.json` for device control:
 For more information:
 - Main documentation: [../../README.md](../../README.md)
 - Widget specifications: [../../docs/WIDGETS.md](../../docs/WIDGETS.md)
-- Initial spec: [../../docs/INITIAL_SPEC.md](../../docs/INITIAL_SPEC.md)
