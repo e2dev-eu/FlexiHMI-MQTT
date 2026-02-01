@@ -1,6 +1,6 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 14 currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the FlexiHMI MQTT, including all 14 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
 - **MQTT Buffer:** 512KB (standard) / 1MB (authenticated) with automatic chunked message handling

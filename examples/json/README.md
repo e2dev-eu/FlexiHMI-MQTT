@@ -1,6 +1,6 @@
 # JSON Configuration Examples
 
-This directory contains example JSON configurations demonstrating various widgets and features of the ESP32-P4 MQTT Panel system.
+This directory contains example JSON configurations demonstrating various widgets and features of the FlexiHMI MQTT system.
 
 ## Quick Start Examples
 
