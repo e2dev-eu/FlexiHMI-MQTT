@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 40,
+      "properties": {
+        "text": "Switch & LED Example",
+        "align": "center",
+        "font_size": 24
+      }
+    },
+    {
+      "id": "switch1",
+      "type": "switch",
+      "x": 100,
+      "y": 100,
+      "w": 80,
+      "h": 40,
+      "properties": {
+        "state": false,
+        "mqtt_topic": "demo/switch1"
+      }
+    },
+    {
+      "id": "switch1_label",
+      "type": "label",
+      "x": 200,
+      "y": 105,
+      "w": 150,
+      "h": 30,
+      "properties": {
+        "text": "Switch 1"
+      }
+    },
+    {
+      "id": "led1",
+      "type": "led",
+      "x": 400,
+      "y": 100,
+      "w": 40,
+      "h": 40,
+      "properties": {
+        "state": false,
+        "mqtt_topic": "demo/switch1",
+        "color_on": "#00FF00",
+        "color_off": "#555555"
+      }
+    },
+    {
+      "id": "switch2",
+      "type": "switch",
+      "x": 100,
+      "y": 170,
+      "w": 80,
+      "h": 40,
+      "properties": {
+        "state": false,
+        "mqtt_topic": "demo/switch2"
+      }
+    },
+    {
+      "id": "switch2_label",
+      "type": "label",
+      "x": 200,
+      "y": 175,
+      "w": 150,
+      "h": 30,
+      "properties": {
+        "text": "Switch 2"
+      }
+    },
+    {
+      "id": "led2",
+      "type": "led",
+      "x": 400,
+      "y": 170,
+      "w": 40,
+      "h": 40,
+      "properties": {
+        "state": false,
+        "mqtt_topic": "demo/switch2",
+        "color_on": "#2196F3",
+        "color_off": "#555555"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 12 currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 13 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
 - **MQTT Buffer:** 32KB with automatic chunked message handling
@@ -44,7 +44,9 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "text": "Temperature: --",
     "format": "Temp: %.1f°C",
     "mqtt_topic": "sensors/temperature",
-    "color": "#FFFFFF"
+    "color": "#FFFFFF",
+    "align": "center",
+    "font_size": 16
   }
 }
 ```
@@ -54,6 +56,8 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `format` (string, optional): Printf-style format for MQTT payload
 - `mqtt_topic` (string, optional): Topic to subscribe for updates
 - `color` (string, optional): Text color in hex format (e.g., "#FFFFFF")
+- `align` (string, optional): Text alignment - "left", "center", or "right" (default: "left")
+- `font_size` (number, optional): Font size in points (10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48)
 
 ---
 
@@ -544,13 +548,72 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 ---
 
+### 13. Gauge Widget
+
+**Description:** Circular gauge/meter with rotating needle indicator, perfect for displaying analog-style measurements like speed, pressure, temperature, or any ranged values.
+
+**LVGL Component:** `lv_scale` with custom needle rendering
+
+**Implementation Features:**
+- Circular scale with configurable range (min/max values)
+- Animated needle indicator
+- Customizable angle range (240° arc by default)
+- Major and minor tick marks with labels
+- MQTT subscription for real-time value updates
+- Smooth needle movement
+- Perfect for dashboard displays
+
+**JSON Example:**
+```json
+{
+  "type": "gauge",
+  "id": "speedometer",
+  "x": 100,
+  "y": 100,
+  "w": 250,
+  "h": 250,
+  "properties": {
+    "min_value": 0,
+    "max_value": 200,
+    "value": 75,
+    "mqtt_topic": "vehicle/speed"
+  }
+}
+```
+
+**Properties:**
+- `min_value` (integer, default: 0): Minimum value on the gauge scale
+- `max_value` (integer, default: 100): Maximum value on the gauge scale
+- `value` (integer, default: 0): Initial gauge value
+- `mqtt_topic` (string, optional): Topic to subscribe for value updates
+
+**MQTT Data Format:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** Integer value (e.g., `"75"`)
+- **Behavior:** Updates gauge needle position to reflect the new value
+- **Value clamping:** Values outside min/max range are automatically clamped
+
+**Usage Example:**
+```bash
+# Update speed gauge to 120
+mosquitto_pub -h localhost -t "vehicle/speed" -m "120"
+
+# Update temperature gauge to 25
+mosquitto_pub -h localhost -t "sensor/temperature" -m "25"
+
+# Update battery level to 85%
+mosquitto_pub -h localhost -t "battery/level" -m "85"
+```
+
+---
+
 ## Planned Widgets
 
 The following widgets could be implemented based on LVGL components:
 
 > **Note:** MQTT data formats for planned widgets are conceptual and subject to change during implementation.
 
-### 13. Chart Widget
+### 14. Chart Widget
 
 **Description:** Line or bar chart for visualizing time-series data.
 

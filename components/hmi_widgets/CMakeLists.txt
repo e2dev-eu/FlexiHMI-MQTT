@@ -1,7 +1,6 @@
 idf_component_register(
     SRCS 
         "hmi_widget.cpp"
-        "widget_registry.cpp"
         "label_widget.cpp"
         "button_widget.cpp"
         "container_widget.cpp"
@@ -14,6 +13,7 @@ idf_component_register(
         "led_widget.cpp"
         "spinner_widget.cpp"
         "tabview_widget.cpp"
+        "gauge_widget.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES

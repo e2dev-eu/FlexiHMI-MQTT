@@ -15,14 +15,14 @@ bool ButtonWidget::create(const std::string& id, int x, int y, int w, int h, cJS
             m_button_text = text_item->valuestring;
         }
         
-        cJSON* pub_topic_item = cJSON_GetObjectItem(properties, "publish_topic");
-        if (pub_topic_item && cJSON_IsString(pub_topic_item)) {
-            m_publish_topic = pub_topic_item->valuestring;
+        cJSON* mqtt_topic_item = cJSON_GetObjectItem(properties, "mqtt_topic");
+        if (mqtt_topic_item && cJSON_IsString(mqtt_topic_item)) {
+            m_mqtt_topic = mqtt_topic_item->valuestring;
         }
         
-        cJSON* pub_payload_item = cJSON_GetObjectItem(properties, "publish_payload");
-        if (pub_payload_item && cJSON_IsString(pub_payload_item)) {
-            m_publish_payload = pub_payload_item->valuestring;
+        cJSON* mqtt_payload_item = cJSON_GetObjectItem(properties, "mqtt_payload");
+        if (mqtt_payload_item && cJSON_IsString(mqtt_payload_item)) {
+            m_mqtt_payload = mqtt_payload_item->valuestring;
         }
         
         cJSON* color_item = cJSON_GetObjectItem(properties, "color");
@@ -85,11 +85,11 @@ void ButtonWidget::button_event_cb(lv_event_t* e) {
     lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
     ButtonWidget* widget = static_cast<ButtonWidget*>(lv_obj_get_user_data(obj));
     
-    if (widget && !widget->m_publish_topic.empty()) {
-        std::string payload = widget->m_publish_payload.empty() ? "clicked" : widget->m_publish_payload;
-        MQTTManager::getInstance().publish(widget->m_publish_topic, payload, 0, false);
+    if (widget && !widget->m_mqtt_topic.empty()) {
+        std::string payload = widget->m_mqtt_payload.empty() ? "clicked" : widget->m_mqtt_payload;
+        MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, false);
         ESP_LOGI(TAG, "Button %s clicked, published to %s: %s", 
-                 widget->m_id.c_str(), widget->m_publish_topic.c_str(), payload.c_str());
+                 widget->m_id.c_str(), widget->m_mqtt_topic.c_str(), payload.c_str());
     }
 }
 

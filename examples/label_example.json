@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 40,
+      "properties": {
+        "text": "Label Widget Example",
+        "align": "center",
+        "font_size": 24,
+        "color": "#FFFFFF"
+      }
+    },
+    {
+      "id": "static_label",
+      "type": "label",
+      "x": 10,
+      "y": 60,
+      "w": 300,
+      "h": 30,
+      "properties": {
+        "text": "Static Label",
+        "color": "#00FF00"
+      }
+    },
+    {
+      "id": "dynamic_label",
+      "type": "label",
+      "x": 10,
+      "y": 100,
+      "w": 400,
+      "h": 30,
+      "properties": {
+        "text": "Dynamic: Waiting...",
+        "mqtt_topic": "demo/label",
+        "format": "Dynamic: %s",
+        "color": "#FFB300"
+      }
+    },
+    {
+      "id": "update_btn",
+      "type": "button",
+      "x": 10,
+      "y": 150,
+      "w": 150,
+      "h": 50,
+      "properties": {
+        "text": "Send Hello",
+        "mqtt_topic": "demo/label",
+        "mqtt_payload": "Hello World!"
+      }
+    }
+  ]
+}

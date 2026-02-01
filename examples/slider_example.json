@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 40,
+      "properties": {
+        "text": "Slider Widget Example",
+        "align": "center",
+        "font_size": 24
+      }
+    },
+    {
+      "id": "slider1",
+      "type": "slider",
+      "x": 50,
+      "y": 80,
+      "w": 400,
+      "h": 20,
+      "properties": {
+        "min_value": 0,
+        "max_value": 100,
+        "value": 50,
+        "mqtt_topic": "demo/slider"
+      }
+    },
+    {
+      "id": "slider_value",
+      "type": "label",
+      "x": 470,
+      "y": 75,
+      "w": 100,
+      "h": 30,
+      "properties": {
+        "text": "50",
+        "mqtt_topic": "demo/slider",
+        "color": "#00FF00"
+      }
+    },
+    {
+      "id": "bar1",
+      "type": "bar",
+      "x": 50,
+      "y": 130,
+      "w": 400,
+      "h": 30,
+      "properties": {
+        "min_value": 0,
+        "max_value": 100,
+        "value": 50,
+        "mqtt_topic": "demo/slider"
+      }
+    }
+  ]
+}

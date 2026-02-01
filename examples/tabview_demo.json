@@ -10,10 +10,14 @@
       "w": 1024,
       "h": 600,
       "properties": {
-        "tabs": ["Controls", "Status", "RGB Lighting"],
+        "tabs": ["Controls", "Status", "RGB Lighting", "Images"],
         "active_tab": 0,
         "mqtt_topic": "demo/active_tab",
-        "retained": true
+        "retained": true,
+        "bg_color": "#0D1117",
+        "tab_bg_color": "#161B22",
+        "active_tab_color": "#58A6FF",
+        "tab_text_color": "#C9D1D9"
       },
       "children": {
         "Controls": [
@@ -67,7 +71,7 @@
               "min": 0,
               "max": 100,
               "value": 50,
-              "mqtt_topic": "demo/volume",
+              "mqtt_topic": "demo/brightness",
               "retained": true,
               "color": "#58A6FF"
             }
@@ -424,7 +428,7 @@
               "min": 0,
               "max": 255,
               "value": 255,
-              "mqtt_topic": "demo/rgb/red",
+              "mqtt_topic": "demo/rgb",
               "retained": true,
               "color": "#FF0000"
             }
@@ -441,7 +445,7 @@
               "min": 0,
               "max": 255,
               "value": 128,
-              "mqtt_topic": "demo/rgb/green",
+              "mqtt_topic": "demo/rgb",
               "retained": true,
               "color": "#00FF00"
             }
@@ -458,7 +462,7 @@
               "min": 0,
               "max": 255,
               "value": 64,
-              "mqtt_topic": "demo/rgb/blue",
+              "mqtt_topic": "demo/rgb",
               "retained": true,
               "color": "#0000FF"
             }
@@ -475,7 +479,7 @@
               "min": 0,
               "max": 255,
               "value": 0,
-              "mqtt_topic": "demo/rgb/white",
+              "mqtt_topic": "demo/rgb",
               "retained": true,
               "color": "#FFFFFF"
             }
@@ -547,6 +551,20 @@
               "publish_topic": "demo/rgb/reset",
               "publish_payload": "RESET",
               "color": "#DA3633"
+            }
+          }
+        ],
+        "Images": [
+          {
+            "type": "label",
+            "id": "images_title",
+            "x": 20,
+            "y": 10,
+            "w": 400,
+            "h": 40,
+            "properties": {
+              "text": "IMAGE DISPLAY",
+              "color": "#58A6FF"
             }
           }
         ]

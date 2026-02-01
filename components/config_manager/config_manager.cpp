@@ -12,6 +12,7 @@
 #include "led_widget.h"
 #include "spinner_widget.h"
 #include "tabview_widget.h"
+#include "gauge_widget.h"
 #include "esp_log.h"
 
 // C wrapper functions for bringing UI elements to front
@@ -184,6 +185,8 @@ HMIWidget* ConfigManager::createWidgetByType(const std::string& type) {
         return new SpinnerWidget();
     } else if (type == "tabview") {
         return new TabviewWidget();
+    } else if (type == "gauge") {
+        return new GaugeWidget();
     }
     
     ESP_LOGE(TAG, "Unknown widget type: %s", type.c_str());

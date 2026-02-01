@@ -17,8 +17,8 @@ private:
     static void button_event_cb(lv_event_t* e);
 
     std::string m_button_text;
-    std::string m_publish_topic;
-    std::string m_publish_payload;
+    std::string m_mqtt_topic;
+    std::string m_mqtt_payload;
     lv_obj_t* m_label;
     lv_color_t m_color;
     bool m_has_color = false;
