@@ -92,6 +92,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "text": "Toggle Light",
     "mqtt_topic": "home/light/command",
     "mqtt_payload": "TOGGLE",
+    "mqtt_retained": false,
     "color": "#2196F3"
   }
 }
@@ -101,6 +102,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `text` (string): Button label text
 - `mqtt_topic` (string): MQTT topic to publish to on click
 - `mqtt_payload` (string): Payload to send when clicked
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Button background color in hex format
 
 ---
@@ -181,7 +183,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
   "properties": {
     "state": false,
     "mqtt_topic": "home/fan/state",
-    "retained": true,
+    "mqtt_retained": true,
     "color": "#4CAF50"
   }
 }
@@ -190,7 +192,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 **Properties:**
 - `state` (boolean): Initial state (true = ON, false = OFF)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message (default: true)
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: true)
 - `color` (string, optional): Switch indicator color in hex format
 
 ---
@@ -226,7 +228,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "max": 255,
     "value": 128,
     "mqtt_topic": "home/light/brightness",
-    "retained": false,
+    "mqtt_retained": false,
     "color": "#FFEB3B"
   }
 }
@@ -238,7 +240,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `max` (number): Maximum value (default: 100)
 - `value` (number): Initial value
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message (default: true)
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: true)
 - `color` (string, optional): Slider indicator/knob color in hex format
 
 ---
@@ -271,7 +273,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "max": 100,
     "value": 50,
     "mqtt_topic": "audio/volume",
-    "retained": true,
+    "mqtt_retained": true,
     "color": "#9C27B0"
   }
 }
@@ -282,7 +284,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `max` (number): Maximum value (default: 100)
 - `value` (number): Initial value
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message
 - `color` (string, optional): Arc indicator color in hex format
 
 ---
@@ -314,7 +316,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "options": ["Auto", "Heat", "Cool", "Fan"],
     "selected": 0,
     "mqtt_topic": "hvac/mode",
-    "retained": true,
+    "mqtt_retained": true,
     "color": "#03A9F4"
   }
 }
@@ -324,7 +326,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `options` (array): List of string options
 - `selected` (number): Initial selected index (0-based)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message
 - `color` (string, optional): Dropdown color in hex format
 
 ---
@@ -355,7 +357,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "text": "Enable Notifications",
     "checked": true,
     "mqtt_topic": "settings/notifications",
-    "retained": true,
+    "mqtt_retained": true,
     "color": "#4CAF50"
   }
 }
@@ -365,7 +367,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `text` (string): Label text next to checkbox
 - `checked` (boolean): Initial checked state
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message
 - `color` (string, optional): Checkbox color in hex format
 
 ---
@@ -512,7 +514,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
     "tabs": ["Controls", "Status", "Settings"],
     "active_tab": 0,
     "mqtt_topic": "ui/active_tab",
-    "retained": true,
+    "mqtt_retained": true,
     "bg_color": "#1E1E1E",
     "tab_bg_color": "#0D1117",
     "active_tab_color": "#58A6FF",
@@ -543,7 +545,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 - `tabs` (array): List of tab names (strings)
 - `active_tab` (number): Initial active tab index (default: 0)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message
 - `bg_color` (string, optional): Background color of content area in hex format
 - `tab_bg_color` (string, optional): Background color of tab bar in hex format
 - `active_tab_color` (string, optional): Color of active tab indicator in hex format
@@ -939,7 +941,7 @@ The following widgets could be implemented based on LVGL components:
 | Property | Type | Description |
 |----------|------|-------------|
 | `mqtt_topic` | string | Topic for publish/subscribe |
-| `retained` | boolean | Publish as retained message (default: true) |
+| `mqtt_retained` | boolean | Publish as retained message (default: true) |
 
 #### MQTT Data Formats by Widget Type
 
@@ -1209,7 +1211,7 @@ Colors are specified in hex format with a `#` prefix:
               "properties": {
                 "state": false,
                 "mqtt_topic": "home/rgb/power",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#4CAF50"
               }
             },
@@ -1226,7 +1228,7 @@ Colors are specified in hex format with a `#` prefix:
                 "max": 255,
                 "value": 255,
                 "mqtt_topic": "home/rgb/red",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#FF0000"
               }
             },
@@ -1243,7 +1245,7 @@ Colors are specified in hex format with a `#` prefix:
                 "max": 255,
                 "value": 0,
                 "mqtt_topic": "home/rgb/green",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#00FF00"
               }
             },
@@ -1260,7 +1262,7 @@ Colors are specified in hex format with a `#` prefix:
                 "max": 255,
                 "value": 0,
                 "mqtt_topic": "home/rgb/blue",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#0000FF"
               }
             },
@@ -1277,7 +1279,7 @@ Colors are specified in hex format with a `#` prefix:
                 "max": 100,
                 "value": 50,
                 "mqtt_topic": "home/rgb/brightness",
-                "retained": false,
+                "mqtt_retained": false,
                 "color": "#FFFFFF"
               }
             },

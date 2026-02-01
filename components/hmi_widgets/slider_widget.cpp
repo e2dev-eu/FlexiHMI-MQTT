@@ -40,7 +40,7 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
             m_mqtt_topic = mqtt_topic->valuestring;
         }
         
-        cJSON* retained_item = cJSON_GetObjectItem(properties, "retained");
+        cJSON* retained_item = cJSON_GetObjectItem(properties, "mqtt_retained");
         if (retained_item && cJSON_IsBool(retained_item)) {
             m_retained = cJSON_IsTrue(retained_item);
         }

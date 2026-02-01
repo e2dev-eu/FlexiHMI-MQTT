@@ -49,7 +49,7 @@
               "properties": {
                 "state": false,
                 "mqtt_topic": "demo/power",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#3FB950"
               }
             },
@@ -78,7 +78,7 @@
                 "max": 100,
                 "value": 50,
                 "mqtt_topic": "demo/volume",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#58A6FF"
               }
             },
@@ -94,7 +94,7 @@
                 "max": 100,
                 "value": 75,
                 "mqtt_topic": "demo/brightness",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#F0883E"
               }
             },
@@ -109,7 +109,7 @@
                 "options": ["Auto", "Manual", "Schedule", "Off"],
                 "selected": 0,
                 "mqtt_topic": "demo/mode",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#8957E5"
               }
             },
@@ -124,7 +124,7 @@
                 "text": "Enable Notifications",
                 "checked": true,
                 "mqtt_topic": "demo/notifications",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#58A6FF"
               }
             },
@@ -139,7 +139,7 @@
                 "text": "Auto Update",
                 "checked": false,
                 "mqtt_topic": "demo/auto_update",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#58A6FF"
               }
             },
@@ -152,8 +152,8 @@
               "h": 60,
               "properties": {
                 "text": "Apply Settings",
-                "publish_topic": "demo/apply",
-                "publish_payload": "APPLY",
+                "mqtt_topic": "demo/apply",
+                "mqtt_payload": "APPLY",
                 "color": "#238636"
               }
             }
@@ -445,7 +445,7 @@
               "properties": {
                 "state": true,
                 "mqtt_topic": "demo/rgb/power",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#DA3633"
               }
             },
@@ -474,7 +474,7 @@
                 "max": 255,
                 "value": 255,
                 "mqtt_topic": "demo/rgb/red",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#FF0000"
               }
             },
@@ -491,7 +491,7 @@
                 "max": 255,
                 "value": 128,
                 "mqtt_topic": "demo/rgb/green",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#00FF00"
               }
             },
@@ -508,7 +508,7 @@
                 "max": 255,
                 "value": 64,
                 "mqtt_topic": "demo/rgb/blue",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#0000FF"
               }
             },
@@ -525,7 +525,7 @@
                 "max": 255,
                 "value": 0,
                 "mqtt_topic": "demo/rgb/white",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#FFFFFF"
               }
             },
@@ -552,7 +552,7 @@
                 "options": ["Solid", "Fade", "Strobe", "Rainbow", "Chase"],
                 "selected": 0,
                 "mqtt_topic": "demo/rgb/effect",
-                "retained": true,
+                "mqtt_retained": true,
                 "color": "#8957E5"
               }
             },
@@ -565,8 +565,8 @@
               "h": 50,
               "properties": {
                 "text": "Save Scene",
-                "publish_topic": "demo/rgb/scene",
-                "publish_payload": "SAVE",
+                "mqtt_topic": "demo/rgb/scene",
+                "mqtt_payload": "SAVE",
                 "color": "#238636"
               }
             },
@@ -579,8 +579,8 @@
               "h": 50,
               "properties": {
                 "text": "Load Scene",
-                "publish_topic": "demo/rgb/scene",
-                "publish_payload": "LOAD",
+                "mqtt_topic": "demo/rgb/scene",
+                "mqtt_payload": "LOAD",
                 "color": "#1F6FEB"
               }
             },
@@ -593,8 +593,8 @@
               "h": 45,
               "properties": {
                 "text": "Reset to Default",
-                "publish_topic": "demo/rgb/reset",
-                "publish_payload": "RESET",
+                "mqtt_topic": "demo/rgb/reset",
+                "mqtt_payload": "RESET",
                 "color": "#DA3633"
               }
             }

@@ -22,6 +22,7 @@ private:
     lv_obj_t* m_label;
     lv_color_t m_color;
     bool m_has_color = false;
+    bool m_retained = false;  // Default to non-retained for button clicks
 };
 
 #endif // BUTTON_WIDGET_H

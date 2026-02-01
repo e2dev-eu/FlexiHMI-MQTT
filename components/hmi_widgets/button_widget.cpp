@@ -25,6 +25,11 @@ bool ButtonWidget::create(const std::string& id, int x, int y, int w, int h, cJS
             m_mqtt_payload = mqtt_payload_item->valuestring;
         }
         
+        cJSON* retained_item = cJSON_GetObjectItem(properties, "mqtt_retained");
+        if (retained_item && cJSON_IsBool(retained_item)) {
+            m_retained = cJSON_IsTrue(retained_item);
+        }
+        
         cJSON* color_item = cJSON_GetObjectItem(properties, "color");
         if (color_item && cJSON_IsString(color_item)) {
             const char* color_str = color_item->valuestring;
@@ -87,9 +92,9 @@ void ButtonWidget::button_event_cb(lv_event_t* e) {
     
     if (widget && !widget->m_mqtt_topic.empty()) {
         std::string payload = widget->m_mqtt_payload.empty() ? "clicked" : widget->m_mqtt_payload;
-        MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, false);
-        ESP_LOGI(TAG, "Button %s clicked, published to %s: %s", 
-                 widget->m_id.c_str(), widget->m_mqtt_topic.c_str(), payload.c_str());
+        MQTTManager::getInstance().publish(widget->m_mqtt_topic, payload, 0, widget->m_retained);
+        ESP_LOGI(TAG, "Button %s clicked, published to %s: %s (retained=%d)", 
+                 widget->m_id.c_str(), widget->m_mqtt_topic.c_str(), payload.c_str(), widget->m_retained);
     }
 }
 

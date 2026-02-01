@@ -103,7 +103,7 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     if (mqtt_topic && cJSON_IsString(mqtt_topic)) {
         m_mqtt_topic = mqtt_topic->valuestring;
         
-        cJSON* retained = cJSON_GetObjectItem(properties, "retained");
+        cJSON* retained = cJSON_GetObjectItem(properties, "mqtt_retained");
         if (retained && cJSON_IsBool(retained)) {
             m_retained = cJSON_IsTrue(retained);
         }
