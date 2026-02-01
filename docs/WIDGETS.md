@@ -27,9 +27,10 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 **Implementation Features:**
 - Text display with word wrapping
-- Printf-style formatting for numeric values
+- Printf-style formatting for string substitution
 - MQTT subscription for dynamic updates
 - Custom text color support
+- Text alignment and font size control
 
 **JSON Example:**
 ```json
@@ -42,7 +43,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
   "h": 30,
   "properties": {
     "text": "Temperature: --",
-    "format": "Temp: %.1f°C",
+    "format": "Temp: %s°C",
     "mqtt_topic": "sensors/temperature",
     "color": "#FFFFFF",
     "align": "center",
@@ -53,11 +54,16 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 **Properties:**
 - `text` (string): Initial text to display
-- `format` (string, optional): Printf-style format for MQTT payload
+- `format` (string, optional): Printf-style format string with %s placeholder for MQTT payload (e.g., "Value: %s")
 - `mqtt_topic` (string, optional): Topic to subscribe for updates
 - `color` (string, optional): Text color in hex format (e.g., "#FFFFFF")
 - `align` (string, optional): Text alignment - "left", "center", or "right" (default: "left")
 - `font_size` (number, optional): Font size in points (10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48)
+
+**MQTT Format Notes:**
+- The `format` property uses `%s` to substitute the MQTT payload as a string
+- Example: Format `"Speed: %s km/h"` with payload `"120"` displays "Speed: 120 km/h"
+- For numeric formatting, send pre-formatted strings via MQTT
 
 ---
 
@@ -84,8 +90,8 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
   "h": 60,
   "properties": {
     "text": "Toggle Light",
-    "publish_topic": "home/light/command",
-    "publish_payload": "TOGGLE",
+    "mqtt_topic": "home/light/command",
+    "mqtt_payload": "TOGGLE",
     "color": "#2196F3"
   }
 }
@@ -93,8 +99,8 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 **Properties:**
 - `text` (string): Button label text
-- `publish_topic` (string): MQTT topic to publish to on click
-- `publish_payload` (string): Payload to send when clicked
+- `mqtt_topic` (string): MQTT topic to publish to on click
+- `mqtt_payload` (string): Payload to send when clicked
 - `color` (string, optional): Button background color in hex format
 
 ---
@@ -939,14 +945,14 @@ The following widgets could be implemented based on LVGL components:
 
 **Label Widget:**
 - **Subscribes to:** `mqtt_topic`
-- **Expected payload:** String or numeric value
-- **Example:** `"25.5"` or `"Hello World"`
-- **Format support:** If `format` property is provided (e.g., `"Temp: %.1f°C"`), payload is parsed as float and formatted
+- **Expected payload:** String value (e.g., `"25.5"`, `"Hello World"`, `"120"`)
+- **Format support:** If `format` property is provided (e.g., `"Temp: %s°C"`), payload is substituted into the %s placeholder
+- **Example:** Format `"Speed: %s km/h"` with payload `"120"` displays "Speed: 120 km/h"
 - **Does not publish**
 
 **Button Widget:**
-- **Publishes to:** `publish_topic`
-- **Payload sent:** Value of `publish_payload` property (string)
+- **Publishes to:** `mqtt_topic`
+- **Payload sent:** Value of `mqtt_payload` property (string)
 - **Example:** `"TOGGLE"`, `"ON"`, `"PRESSED"`
 - **Trigger:** On click/press event
 - **Does not subscribe**
@@ -1284,8 +1290,8 @@ Colors are specified in hex format with a `#` prefix:
               "h": 60,
               "properties": {
                 "text": "Save Preset",
-                "publish_topic": "home/rgb/preset",
-                "publish_payload": "SAVE",
+                "mqtt_topic": "home/rgb/preset",
+                "mqtt_payload": "SAVE",
                 "color": "#2196F3"
               }
             }
