@@ -9,8 +9,8 @@
       "w": 250,
       "h": 250,
       "properties": {
-        "min_value": 0,
-        "max_value": 200,
+        "min": 0,
+        "max": 200,
         "value": 75,
         "mqtt_topic": "panel/gauge1"
       }
@@ -23,8 +23,8 @@
       "w": 250,
       "h": 250,
       "properties": {
-        "min_value": 0,
-        "max_value": 100,
+        "min": 0,
+        "max": 100,
         "value": 50,
         "mqtt_topic": "panel/gauge2"
       }
@@ -37,8 +37,8 @@
       "w": 250,
       "h": 250,
       "properties": {
-        "min_value": -20,
-        "max_value": 120,
+        "min": -20,
+        "max": 120,
         "value": 22,
         "mqtt_topic": "sensor/temperature"
       }

@@ -3,8 +3,8 @@
 This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 14 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
-- **MQTT Buffer:** 32KB with automatic chunked message handling
-- **Large Configurations:** Supports JSON configs up to 32KB
+- **MQTT Buffer:** 512KB (standard) / 1MB (authenticated) with automatic chunked message handling
+- **Large Configurations:** Supports JSON configs up to 1MB
 - **Thread Safety:** Queue-based config updates, async LVGL calls
 - **Color Support:** Hex color format (#RRGGBB) for all visual elements
 - **Bidirectional MQTT:** Widgets publish state changes and subscribe to updates
@@ -12,6 +12,7 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 
 ## Table of Contents
 - [Currently Implemented Widgets](#currently-implemented-widgets)
+- [Common Patterns and Best Practices](#common-patterns-and-best-practices)
 - [Planned Widgets](#planned-widgets)
 - [Widget Properties Reference](#widget-properties-reference)
 
@@ -581,8 +582,8 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
   "w": 250,
   "h": 250,
   "properties": {
-    "min_value": 0,
-    "max_value": 200,
+    "min": 0,
+    "max": 200,
     "value": 75,
     "mqtt_topic": "vehicle/speed"
   }
@@ -590,8 +591,8 @@ This document describes the HMI widget system for the ESP32-P4 MQTT Panel, inclu
 ```
 
 **Properties:**
-- `min_value` (integer, default: 0): Minimum value on the gauge scale
-- `max_value` (integer, default: 100): Maximum value on the gauge scale
+- `min` (integer, default: 0): Minimum value on the gauge scale
+- `max` (integer, default: 100): Maximum value on the gauge scale
 - `value` (integer, default: 0): Initial gauge value
 - `mqtt_topic` (string, optional): Topic to subscribe for value updates
 
@@ -617,16 +618,17 @@ mosquitto_pub -h localhost -t "battery/level" -m "85"
 
 ### 14. Image Widget
 
-**Description:** Displays images from SD card storage. Supports JPEG, PNG, and BMP formats. Images can be updated dynamically via MQTT.
+**Description:** Displays images from SD card storage or base64-encoded data. Supports JPEG, PNG, BMP, and GIF formats. Images can be updated dynamically via MQTT.
 
 **LVGL Component:** `lv_image`
 
 **Implementation Features:**
-- Load images from SD card (`/sdcard/...`)
-- JPEG, PNG, BMP format support
+- Load images from SD card (`/sdcard/...`) or base64-encoded data
+- JPEG, PNG, BMP, GIF format support (static and animated GIF)
 - ESP32-P4 hardware JPEG decoder acceleration
-- MQTT-based dynamic image updates
+- MQTT-based dynamic image updates with dual loading modes
 - Automatic image scaling to fit widget size
+- Base64 decoding using mbedtls library
 
 **JSON Example:**
 ```json
@@ -645,32 +647,195 @@ mosquitto_pub -h localhost -t "battery/level" -m "85"
 ```
 
 **Properties:**
-- `image_path` (string): Path to image file on SD card (e.g., "/sdcard/images/logo.jpg")
-- `mqtt_topic` (string, optional): Topic to subscribe for image path updates
+- `image_path` (string): Initial image - SD card path OR base64-encoded image data (e.g., "/sdcard/images/logo.jpg" or base64 string)
+- `mqtt_topic` (string, optional): Topic to subscribe for image updates (supports both path and base64)
 
 **MQTT Behavior:**
 - **Subscribes to:** `mqtt_topic`
-- **Expected payload:** Image file path (e.g., `"/sdcard/images/photo.png"`)
-- **Behavior:** Loads and displays the image from the specified SD card path
-- **Supported formats:** JPEG (.jpg, .jpeg), PNG (.png), BMP (.bmp)
+- **Expected payload formats:**
+  - **SD card path:** `"/sdcard/images/photo.png"` (string with path)
+  - **Base64 data:** Raw base64-encoded image string (auto-detected, >100 chars)
+- **Behavior:** Automatically detects format and loads image accordingly
+- **Supported formats:** JPEG (.jpg, .jpeg), PNG (.png), BMP (.bmp), GIF (.gif)
+- **Detection:** Payloads >100 chars with 95%+ base64 characters treated as base64 data
 
 **Usage Example:**
 ```bash
-# Change displayed image
+# Change displayed image using SD card path
 mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.jpg"
 
 # Show logo
 mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.png"
 
-# Display photo
-mosquitto_pub -h localhost -t "gallery/current" -m "/sdcard/photos/vacation.jpg"
+# Send base64-encoded image (small example, actual images are larger)
+# Use examples/encode_image_to_base64.py to encode images
+BASE64_DATA=$(cat image.jpg.base64.txt)
+mosquitto_pub -h localhost -t "display/dynamic_image" -m "$BASE64_DATA"
+
+# Send base64 directly (PNG example)
+mosquitto_pub -h localhost -t "gallery/current" -m "iVBORw0KGgoAAAANSUhEUgAA..."
 ```
 
 **SD Card Setup:**
-- Images must be stored on SD card
+- Images must be stored on SD card at `/sdcard/...`
 - Recommended path structure: `/sdcard/images/`
 - Ensure SD card is mounted before loading images
 - Supported image sizes limited by available RAM
+
+**Base64 Usage:**
+- Use `examples/encode_image_to_base64.py` to convert images
+- Outputs `.base64.txt` files ready for MQTT transmission
+- No data URI prefix needed (raw base64 string)
+- Useful for dynamic image updates without SD card writes
+- Detection: Payloads >100 characters with 95%+ base64 chars automatically decoded
+- See `examples/docs/BASE64_IMAGE_TESTING.md` for detailed guide
+
+---
+
+## Common Patterns and Best Practices
+
+This section describes patterns used consistently across all widget implementations to ensure reliability, thread safety, and proper MQTT integration.
+
+### MQTT Property Naming Conventions
+
+All widgets follow consistent property naming:
+
+| Property | Purpose | Widget Types |
+|----------|---------|--------------|
+| `mqtt_topic` | Topic to subscribe/publish | All bidirectional widgets |
+| `mqtt_payload` | Custom payload for publications | Button |
+| `mqtt_retained` | Retain flag for MQTT messages | Switch, Checkbox, Slider, Arc, Bar, Gauge |
+
+**Consistency Notes:**
+- All MQTT subscription properties use `mqtt_topic` (never `topic`, `subscribe_topic`, etc.)
+- All retained flags use `mqtt_retained` (boolean)
+- Color properties use `color` suffix: `bg_color`, `text_color`, `indicator_color`, `arc_color`
+
+### Feedback Loop Prevention
+
+**Problem:** Bidirectional widgets (Switch, Checkbox, Slider, etc.) both publish state changes AND subscribe to updates. Without protection, this creates infinite feedback loops:
+1. User moves slider → publishes value
+2. MQTT broker echoes back → widget updates
+3. Widget update triggers publish → infinite loop
+
+**Solution:** All bidirectional widgets implement the `m_updating_from_mqtt` flag pattern:
+
+```cpp
+void MyWidget::onMqttMessage(const std::string& topic, const std::string& payload) {
+    m_updating_from_mqtt = true;  // Set flag BEFORE updating widget
+    lv_slider_set_value(m_widget, value, LV_ANIM_OFF);
+    m_updating_from_mqtt = false; // Clear flag AFTER update
+}
+
+void MyWidget::onValueChanged(lv_event_t* e) {
+    if (m_updating_from_mqtt) return;  // Skip publishing during MQTT updates
+    // Publish to MQTT only for user-initiated changes
+    publishValue();
+}
+```
+
+**Key Points:**
+- Flag set BEFORE any LVGL update that might trigger callbacks
+- Flag cleared AFTER update completes
+- Event handlers check flag FIRST before publishing
+- This pattern appears in: Switch, Checkbox, Slider, Arc, Bar, Dropdown, Gauge
+
+### Thread-Safe LVGL Updates
+
+**Problem:** MQTT callbacks execute in network thread, but LVGL must be updated from main thread only.
+
+**Solution:** All MQTT message handlers use `lv_async_call()` to schedule updates:
+
+```cpp
+void MyWidget::onMqttMessage(const std::string& topic, const std::string& payload) {
+    // Copy data to heap for async callback
+    std::string* msg_copy = new std::string(payload);
+    
+    // Schedule update on LVGL thread
+    lv_async_call([](void* user_data) {
+        std::string* msg = static_cast<std::string*>(user_data);
+        // Safe to update LVGL here
+        delete msg;  // Clean up
+    }, msg_copy);
+}
+```
+
+**Key Points:**
+- NEVER call LVGL functions directly from MQTT callbacks
+- Always heap-allocate data passed to async callback
+- Callback executes on main thread during `lv_timer_handler()`
+- Pattern used in ALL widgets with MQTT subscriptions
+
+### MQTT Retained Messages Strategy
+
+**Widget Categories:**
+
+1. **Publishing Widgets (with `mqtt_retained` property):**
+   - Switch, Checkbox, Slider, Arc, Bar, Gauge
+   - Publish state changes with configurable retained flag
+   - Default: `mqtt_retained: false`
+   - Use retained for persistent state (e.g., thermostat setpoint)
+
+2. **Display-Only Widgets (no retained property):**
+   - Label, LED, Spinner, Image
+   - Only subscribe, never publish
+   - No retained flag needed
+
+3. **Action Widgets (no retained property):**
+   - Button
+   - Publishes on action, but retained doesn't make sense for button presses
+   - Always non-retained
+
+**Guideline:** Set `mqtt_retained: true` only when widget represents persistent system state that should survive broker restarts.
+
+### Color Format
+
+All color properties use hex format: `#RRGGBB`
+
+**Examples:**
+- `#FF0000` - Red
+- `#00FF00` - Green  
+- `#0000FF` - Blue
+- `#FFFFFF` - White
+- `#000000` - Black
+- `#FF8800` - Orange
+
+**Consistency:** All widgets accept this format for any color property (`bg_color`, `text_color`, `indicator_color`, etc.)
+
+### Boolean Data Formats
+
+**MQTT Payloads:**
+- **Switch:** Uses `"ON"` / `"OFF"` (string)
+- **Checkbox:** Uses `"true"` / `"false"` (string)
+- **LED:** Uses `"true"` / `"false"` (string)
+
+**JSON Properties:**
+- All boolean properties in JSON config use JSON boolean: `true` / `false`
+- Example: `"mqtt_retained": true`, `"checked": false`
+
+**Rationale:** Different widgets may have different MQTT conventions. Switch uses ON/OFF to match Home Assistant and other smart home systems. Checkbox uses true/false for general boolean semantics.
+
+### Property Naming Consistency (100%)
+
+**Standardized Property Names:**
+- Range properties: `min`, `max` (used by Slider, Arc, Bar, Gauge)
+- Value properties: `value` (all range-based widgets)
+- Position: `x`, `y`, `w`, `h` (all widgets)
+- Text: `text` (Label, Button)
+- Colors: `*_color` suffix (all color properties)
+
+### Memory Management
+
+**Image Widget Special Case:**
+- Base64-decoded images stored in `m_decoded_data` (heap allocated)
+- `lv_image_dsc_t` also heap allocated for persistence
+- Destructor frees `m_decoded_data` once (not `dsc->data` pointer, which aliases it)
+- Pattern prevents double-free bugs
+
+**General Pattern:**
+- LVGL widgets auto-deleted when parent deleted
+- Heap data (decoded images, copied strings) freed in destructor
+- MQTT subscriptions cleaned up in destructor
 
 ---
 
@@ -796,91 +961,7 @@ The following widgets could be implemented based on LVGL components:
 
 ---
 
-### 16. Image Widget
-
-**Description:** Display static or dynamic images from SD card or base64-encoded data.
-
-**LVGL Component:** `lv_image` (formerly `lv_img`)
-
-**Implementation Concept:**
-- Load images from SD card filesystem
-- Receive base64-encoded images via MQTT
-- Support for PNG, JPEG, BMP, GIF
-- Automatic format detection
-- Memory-efficient handling
-- ESP32-P4 hardware JPEG decoder support
-
-**MQTT Data Format:**
-- **Subscribes to:** `mqtt_topic`
-- **Expected payload:** 
-  - SD card file path: `"/sdcard/image.jpg"` (automatically converted to LVGL path `S:/image.jpg`)
-  - Base64-encoded image data: Raw base64 string (e.g., `/9j/4AAQSkZJRgABAQAAAQABAAD...`)
-- **Does not publish** (display only)
-
-**Properties:**
-- `image_path`: Initial image path on SD card (optional)
-- `mqtt_topic`: MQTT topic to subscribe for dynamic image updates
-
-**Image Loading Methods:**
-
-1. **SD Card Loading:**
-   - Store images on SD card (e.g., `/sdcard/logo.png`)
-   - Reference in JSON config or send path via MQTT
-   - Efficient for static images or pre-loaded content
-   - No memory overhead - images loaded directly from filesystem
-
-2. **Base64 Loading:**
-   - Encode image: `python3 encode_image_to_base64.py image.jpg`
-   - Send via MQTT: `mosquitto_pub -t "demo/image" -m "<base64_data>"`
-   - Ideal for dynamic content, small images, or remote updates
-   - Image data decoded to memory (limited by available RAM)
-
-**SD Card Setup:**
-- SD card mounted at `/sdcard` (configured in main.cpp)
-- LVGL filesystem maps `/sdcard` → `S:` drive
-- Supported formats: JPEG (hardware accelerated), PNG, BMP, GIF
-
-**JSON Example:**
-```json
-{
-  "type": "image",
-  "id": "camera_feed",
-  "x": 200,
-  "y": 100,
-  "w": 320,
-  "h": 240,
-  "properties": {
-    "image_path": "/sdcard/logo.png",
-    "mqtt_topic": "camera/snapshot"
-  }
-}
-```
-
-**Usage Examples:**
-
-```bash
-# Load image from SD card via MQTT
-mosquitto_pub -t "camera/snapshot" -m "/sdcard/photo.jpg"
-
-# Load base64-encoded image via MQTT
-# First, encode your image
-python3 examples/encode_image_to_base64.py my_image.jpg
-
-# Then send the base64 output
-mosquitto_pub -t "camera/snapshot" -m "<paste_base64_here>"
-```
-
-**Notes:**
-- Small images (<100KB) work best for base64 transmission over MQTT
-- Large images should be stored on SD card for performance
-- Base64 encoding increases data size by ~33%
-- ESP32-P4 hardware JPEG decoder provides fast rendering
-- LVGL automatically detects image format from data
-
-
----
-
-### 17. Meter Widget
+### 15. Meter Widget
 
 **Description:** Analog-style meter/gauge with scale and needle.
 
@@ -919,7 +1000,7 @@ mosquitto_pub -t "camera/snapshot" -m "<paste_base64_here>"
 
 ---
 
-### 18. Keyboard Widget
+### 16. Keyboard Widget
 
 **Description:** On-screen keyboard for text input.
 
@@ -949,7 +1030,7 @@ mosquitto_pub -t "camera/snapshot" -m "<paste_base64_here>"
 
 ---
 
-### 18. Calendar Widget
+### 17. Calendar Widget
 
 **Description:** Calendar for date selection.
 

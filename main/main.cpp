@@ -137,7 +137,7 @@ static void init_base_ui(void)
     bsp_display_unlock();
 
     // Initialize backlight manager (10 seconds timeout, dim to 5%, 1 second fade)
-    BacklightManager::getInstance().init(10, 5, 1000);
+    BacklightManager::getInstance().init(30, 5, 1000);
 
     ESP_LOGI(TAG, "Base UI initialized");
 }

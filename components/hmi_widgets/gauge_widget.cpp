@@ -14,14 +14,14 @@ bool GaugeWidget::create(const std::string& id, int x, int y, int w, int h, cJSO
     
     // Extract properties
     if (properties) {
-        cJSON* min_value = cJSON_GetObjectItem(properties, "min_value");
-        if (min_value && cJSON_IsNumber(min_value)) {
-            m_min_value = min_value->valueint;
+        cJSON* min_item = cJSON_GetObjectItem(properties, "min");
+        if (min_item && cJSON_IsNumber(min_item)) {
+            m_min_value = min_item->valueint;
         }
         
-        cJSON* max_value = cJSON_GetObjectItem(properties, "max_value");
-        if (max_value && cJSON_IsNumber(max_value)) {
-            m_max_value = max_value->valueint;
+        cJSON* max_item = cJSON_GetObjectItem(properties, "max");
+        if (max_item && cJSON_IsNumber(max_item)) {
+            m_max_value = max_item->valueint;
         }
         
         cJSON* value = cJSON_GetObjectItem(properties, "value");
