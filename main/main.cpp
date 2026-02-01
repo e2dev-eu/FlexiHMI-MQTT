@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <dirent.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -230,6 +231,24 @@ extern "C" void app_main_cpp(void)
 
     // Initialize base UI first (gear icon + placeholder) - shows immediately
     init_base_ui();
+
+    // Initialize SD card for image storage
+    ESP_LOGI(TAG, "Mounting SD card...");
+    esp_err_t ret = bsp_sdcard_mount();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mount SD card: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Image widget will not work without SD card");
+    } else {
+        ESP_LOGI(TAG, "SD card mounted successfully at %s", BSP_SD_MOUNT_POINT);
+        
+        // Print SD card information
+        sdmmc_card_t *sdcard = bsp_sdcard_get_handle();
+        if (sdcard != NULL) {
+            ESP_LOGI(TAG, "SD Card: %s, Size: %llu MB", 
+                     sdcard->cid.name, 
+                     ((uint64_t)sdcard->csd.capacity) * sdcard->csd.sector_size / (1024 * 1024));
+        }
+    }
 
     // Initialize network managers (Ethernet and Wi-Fi) - can take time
     init_network_managers();

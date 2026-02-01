@@ -1,6 +1,6 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 13 currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the ESP32-P4 MQTT Panel, including all 14 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
 - **MQTT Buffer:** 32KB with automatic chunked message handling
@@ -612,6 +612,65 @@ mosquitto_pub -h localhost -t "sensor/temperature" -m "25"
 # Update battery level to 85%
 mosquitto_pub -h localhost -t "battery/level" -m "85"
 ```
+
+---
+
+### 14. Image Widget
+
+**Description:** Displays images from SD card storage. Supports JPEG, PNG, and BMP formats. Images can be updated dynamically via MQTT.
+
+**LVGL Component:** `lv_image`
+
+**Implementation Features:**
+- Load images from SD card (`/sdcard/...`)
+- JPEG, PNG, BMP format support
+- ESP32-P4 hardware JPEG decoder acceleration
+- MQTT-based dynamic image updates
+- Automatic image scaling to fit widget size
+
+**JSON Example:**
+```json
+{
+  "type": "image",
+  "id": "product_photo",
+  "x": 50,
+  "y": 100,
+  "w": 300,
+  "h": 300,
+  "properties": {
+    "image_path": "/sdcard/images/product.jpg",
+    "mqtt_topic": "display/product_image"
+  }
+}
+```
+
+**Properties:**
+- `image_path` (string): Path to image file on SD card (e.g., "/sdcard/images/logo.jpg")
+- `mqtt_topic` (string, optional): Topic to subscribe for image path updates
+
+**MQTT Behavior:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** Image file path (e.g., `"/sdcard/images/photo.png"`)
+- **Behavior:** Loads and displays the image from the specified SD card path
+- **Supported formats:** JPEG (.jpg, .jpeg), PNG (.png), BMP (.bmp)
+
+**Usage Example:**
+```bash
+# Change displayed image
+mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.jpg"
+
+# Show logo
+mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.png"
+
+# Display photo
+mosquitto_pub -h localhost -t "gallery/current" -m "/sdcard/photos/vacation.jpg"
+```
+
+**SD Card Setup:**
+- Images must be stored on SD card
+- Recommended path structure: `/sdcard/images/`
+- Ensure SD card is mounted before loading images
+- Supported image sizes limited by available RAM
 
 ---
 

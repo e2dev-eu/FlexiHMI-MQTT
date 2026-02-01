@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 40,
+      "properties": {
+        "text": "Image Widget Example",
+        "align": "center",
+        "font_size": 24
+      }
+    },
+    {
+      "id": "image1",
+      "type": "image",
+      "x": 50,
+      "y": 80,
+      "w": 512,
+      "h": 512,
+      "properties": {
+        "image_path": "/sdcard/lenna512.png",
+        "mqtt_topic": "demo/image1"
+      }
+    },
+    {
+      "id": "image1_label",
+      "type": "label",
+      "x": 50,
+      "y": 346,
+      "w": 256,
+      "h": 30,
+      "properties": {
+        "text": "Lena (256x256)",
+        "align": "center"
+      }
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "x": 150,
+      "y": 80,
+      "w": 512,
+      "h": 512,
+      "properties": {
+        "image_path": "/sdcard/nosmoking.png",
+        "mqtt_topic": "demo/image2"
+      }
+    },
+    {
+      "id": "image2_label",
+      "type": "label",
+      "x": 350,
+      "y": 346,
+      "w": 256,
+      "h": 30,
+      "properties": {
+        "text": "Lena Copy",
+        "align": "center"
+      }
+    },
+    {
+      "id": "controls_label",
+      "type": "label",
+      "x": 50,
+      "y": 400,
+      "w": 556,
+      "h": 25,
+      "properties": {
+        "text": "Control Images via MQTT:",
+        "color": "#AAAAAA"
+      }
+    },
+    {
+      "id": "btn_lena",
+      "type": "button",
+      "x": 50,
+      "y": 440,
+      "w": 160,
+      "h": 50,
+      "properties": {
+        "text": "Lena",
+        "mqtt_topic": "demo/image1",
+        "mqtt_payload": "/sdcard/lenna512.png"
+      }
+    },
+    {
+      "id": "btn_logo",
+      "type": "button",
+      "x": 223,
+      "y": 440,
+      "w": 160,
+      "h": 50,
+      "properties": {
+        "text": "No Smoking",
+        "mqtt_topic": "demo/image1",
+        "mqtt_payload": "/sdcard/nosmoking.png"
+      }
+    },
+    {
+      "id": "btn_photo",
+      "type": "button",
+      "x": 396,
+      "y": 440,
+      "w": 160,
+      "h": 50,
+      "properties": {
+        "text": "Potions",
+        "mqtt_topic": "demo/image1",
+        "mqtt_payload": "/sdcard/potions.png"
+      }
+    }
+  ]
+}
