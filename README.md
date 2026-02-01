@@ -1,4 +1,4 @@
-# ESP32-P4 MQTT-Driven Dynamic HMI Panel
+# FlexiHMI MQTT
 
 A production-ready, MQTT-controlled dynamic Human-Machine Interface (HMI) system for the ESP32-P4-Function-EV-Board. 
 Features LVGL 9.2, real-time configuration updates, 14 widget types, and hardware-accelerated graphics.
