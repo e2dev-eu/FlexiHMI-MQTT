@@ -128,8 +128,8 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f complete_demo.json
 **Step 1:** Encode your image to base64
 ```bash
 cd examples
-python3 encode_image_to_base64.py images/your_image.png
-# This creates images/your_image.png.base64.txt
+python3 encode_image_to_base64.py images/iot.png
+# This creates images/iot.png.base64.txt
 ```
 
 **Step 2:** Copy the base64 string (open the .base64.txt file)
@@ -147,8 +147,8 @@ python3 encode_image_to_base64.py images/your_image.png
       "w": 128,
       "h": 128,
       "properties": {
-        "image_path": "iVBORw0KGgoAAAANSUhEUgAA...YOUR_BASE64_DATA...",
-        "mqtt_topic": "demo/image1"
+        "image_path": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACA...BASE64_DATA_FROM_iot.png.base64.txt...",
+        "mqtt_topic": "demo/image_base64"
       }
     }
   ]
@@ -175,21 +175,21 @@ python3 encode_image_to_base64.py images/logo.png
 BASE64_DATA=$(cat images/logo.png.base64.txt)
 
 # Send to image widget's MQTT topic
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_DATA"
+mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_DATA"
 ```
 
 **Step 3:** Switch between different images dynamically
 ```bash
-# Display image A
-BASE64_A=$(cat images/imageA.png.base64.txt)
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_A"
+# Display IoT icon
+BASE64_IOT=$(cat images/iot.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_IOT"
 
-# Display image B
-BASE64_B=$(cat images/imageB.png.base64.txt)
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_B"
+# Display Lena image
+mosquitto_pub -h 192.168.100.200 -t "demo/image_sdcard" -m "/sdcard/lenna256.png"
 
-# Or use SD card path
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/photo.jpg"
+# Display Logo
+BASE64_LOGO=$(cat images/logo.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_LOGO"
 ```
 
 #### Method 3: Batch Processing Multiple Images
@@ -213,17 +213,14 @@ ls -lh *.base64.txt
 # Define your MQTT broker
 BROKER="192.168.100.200"
 
-# Send to image widget 1
-BASE64_1=$(cat examples/images/icon1.png.base64.txt)
-mosquitto_pub -h $BROKER -t "demo/image1" -m "$BASE64_1"
+# Send to image widget on demo tab (image_example.json)
+BASE64_IOT=$(cat examples/images/iot.png.base64.txt)
+mosquitto_pub -h $BROKER -t "demo/image_base64" -m "$BASE64_IOT"
 
-# Send to image widget 2
-BASE64_2=$(cat examples/images/icon2.png.base64.txt)
-mosquitto_pub -h $BROKER -t "demo/image2" -m "$BASE64_2"
-
-# Send to image widget 3
-BASE64_3=$(cat examples/images/icon3.png.base64.txt)
-mosquitto_pub -h $BROKER -t "demo/image3" -m "$BASE64_3"
+# Send to image widgets on interactive demo (different topics)
+mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lenna256.png"
+mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/logo.png"
+mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.png"
 ```
 
 #### Best Practices for Base64 Images
@@ -297,18 +294,18 @@ mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/yourimage.jpg"
 cd /path/to/ESP32P4-MQTT-Panel/examples
 
 # 2. Prepare your image (resize if needed)
-convert my_logo.png -resize 128x128 images/logo_small.png
+convert iot.png -resize 128x128 images/iot_small.png
 
 # 3. Encode to base64
-python3 encode_image_to_base64.py images/logo_small.png
+python3 encode_image_to_base64.py images/iot_small.png
 
 # 4. Verify encoding
-echo "File size: $(wc -c < images/logo_small.png.base64.txt) bytes"
-echo "First 50 chars: $(head -c 50 images/logo_small.png.base64.txt)"
+echo "File size: $(wc -c < images/iot_small.png.base64.txt) bytes"
+echo "First 50 chars: $(head -c 50 images/iot_small.png.base64.txt)"
 
 # 5. Send to device
-BASE64_DATA=$(cat images/logo_small.png.base64.txt)
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "$BASE64_DATA"
+BASE64_DATA=$(cat images/iot_small.png.base64.txt)
+mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_DATA"
 
 # 6. Watch serial monitor to confirm
 # Should see: "Successfully decoded XXXX bytes of image data"

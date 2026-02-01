@@ -124,7 +124,7 @@
       "properties": {
         "text": "IoT",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/IoT.png"
+        "mqtt_payload": "/sdcard/iot.png"
       }
     },
     {

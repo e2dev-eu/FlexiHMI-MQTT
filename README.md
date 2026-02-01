@@ -61,7 +61,7 @@ idf.py build flash monitor
 
 ### 3. Connect to MQTT
 
-The device will connect to your MQTT broker on boot. Configure WiFi/MQTT credentials in the settings UI or via code.
+The device will connect to your MQTT broker on boot. Configure WiFi/MQTT credentials in the settings UI (bottom right icon).
 
 ### 4. Load a Configuration
 
@@ -240,12 +240,6 @@ See [examples/json/README.md](examples/json/README.md) for detailed descriptions
 git clone <repository_url>
 cd ESP32P4-MQTT-Panel
 
-# Set up ESP-IDF
-get_idf
-
-# Configure (optional)
-idf.py menuconfig
-
 # Build
 idf.py build
 
@@ -307,18 +301,6 @@ ls -lh config.json
 - Confirm topic is `hmi/config`
 - Check serial monitor for parse errors
 
-### Low FPS / Stuttering
-
-- Ensure PPA acceleration is enabled: `CONFIG_LV_USE_DRAW_PPA=y`
-- Reduce number of simultaneous animations
-- Check `CONFIG_COMPILER_OPTIMIZATION_PERF=y`
-
-### Images Not Displaying
-
-- **SD card**: Verify files exist at `/sdcard/filename`
-- **Base64**: Check data is complete (no truncation)
-- See [examples/docs/IMAGE_WIDGET_README.md](examples/docs/IMAGE_WIDGET_README.md)
-
 ### MQTT Messages Not Received
 
 - Test broker: `mosquitto_sub -h <broker> -t "#" -v`
@@ -329,10 +311,7 @@ ls -lh config.json
 ## Documentation
 
 - [WIDGETS.md](docs/WIDGETS.md) - Complete widget API reference
-- [INITIAL_SPEC.md](docs/INITIAL_SPEC.md) - Original design specification  
 - [examples/json/README.md](examples/json/README.md) - Configuration examples guide
-- [examples/docs/IMAGE_WIDGET_README.md](examples/docs/IMAGE_WIDGET_README.md) - Image widget usage
-- [examples/docs/BASE64_IMAGE_TESTING.md](examples/docs/BASE64_IMAGE_TESTING.md) - Image testing guide
 
 ## Performance
 
@@ -341,12 +320,30 @@ ls -lh config.json
 - **FPS**: 30-60 FPS with PPA acceleration
 - **Touch latency**: <50ms
 - **MQTT latency**: <100ms for updates
-- **Max config size**: 1MB (with chunking)
+- **Max config size**: 512kb
 - **Max base64 image**: ~100KB recommended
 
 ## License
 
-[Add your license here]
+**Copyright © 2026 Spas Hristov. All Rights Reserved.**
+
+### Terms of Use
+
+**Personal and Educational Use**: This software is free to use for personal, educational, and non-commercial purposes.
+
+**Commercial Use**: Any commercial use, including but not limited to:
+- Integration into commercial products or services
+- Use in business operations or environments
+- Redistribution as part of commercial offerings
+- Consulting or contracting work for compensation
+
+requires prior written permission from the copyright holder.
+
+**Attribution**: You must give appropriate credit, provide a link to this repository, and indicate if changes were made.
+
+**No Warranty**: This software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+**Contact**: For commercial licensing inquiries, please contact Spas Hristov.
 
 ## Credits
 
