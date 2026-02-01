@@ -227,7 +227,7 @@ static void init_network_managers(void)
 
 extern "C" void app_main_cpp(void)
 {
-    ESP_LOGI(TAG, "Initializing ESP32-P4 MQTT Panel...");
+    ESP_LOGI(TAG, "Initializing...");
 
     // Initialize base UI first (gear icon + placeholder) - shows immediately
     init_base_ui();
