@@ -380,6 +380,10 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
     wifi_config.sta.pmf_cfg.capable = true;
     wifi_config.sta.pmf_cfg.required = false;
 
+    // Disconnect first to ensure clean state
+    esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100)); // Brief delay to ensure disconnect completes
+    
     esp_err_t ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi config: %s", esp_err_to_name(ret));
@@ -393,13 +397,10 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
         return ret;
     }
 
-    // Clear event bits
-    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
-
-    // Connect
+    // Connect (non-blocking - status updates will come via event handlers)
     ret = esp_wifi_connect();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to connect: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Failed to initiate connection: %s", esp_err_to_name(ret));
         xSemaphoreTake(m_mutex, portMAX_DELAY);
         m_status = WifiConnectionStatus::FAILED;
         status_cb = m_status_callback;
@@ -410,37 +411,9 @@ esp_err_t WirelessManager::connect(const std::string& ssid, const std::string& p
         return ret;
     }
 
-    // Wait for connection or failure
-    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                           pdTRUE,
-                                           pdFALSE,
-                                           pdMS_TO_TICKS(timeout_ms));
-
-    if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Connected to Wi-Fi network: %s", ssid.c_str());
-        return ESP_OK;
-    } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "Failed to connect to Wi-Fi network: %s", ssid.c_str());
-        xSemaphoreTake(m_mutex, portMAX_DELAY);
-        m_status = WifiConnectionStatus::FAILED;
-        status_cb = m_status_callback;
-        xSemaphoreGive(m_mutex);
-        if (status_cb) {
-            status_cb(WifiConnectionStatus::FAILED, "Authentication failed");
-        }
-        return ESP_FAIL;
-    } else {
-        ESP_LOGE(TAG, "Connection timeout");
-        xSemaphoreTake(m_mutex, portMAX_DELAY);
-        m_status = WifiConnectionStatus::FAILED;
-        status_cb = m_status_callback;
-        xSemaphoreGive(m_mutex);
-        if (status_cb) {
-            status_cb(WifiConnectionStatus::FAILED, "Connection timeout");
-        }
-        return ESP_ERR_TIMEOUT;
-    }
+    ESP_LOGI(TAG, "Wi-Fi connection initiated for: %s", ssid.c_str());
+    // Connection result will be reported via wifi_event_handler and ip_event_handler
+    return ESP_OK;
 }
 
 esp_err_t WirelessManager::disconnect() {
@@ -632,17 +605,33 @@ void WirelessManager::wifi_event_handler(void* arg, esp_event_base_t event_base,
         manager->m_current_ssid = std::string(reinterpret_cast<char*>(event->ssid), event->ssid_len);
         xSemaphoreGive(manager->m_mutex);
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGI(TAG, "Wi-Fi disconnected");
+        wifi_event_sta_disconnected_t* event = static_cast<wifi_event_sta_disconnected_t*>(event_data);
+        ESP_LOGI(TAG, "Wi-Fi disconnected (reason: %d)", event->reason);
+        
         xSemaphoreTake(manager->m_mutex, portMAX_DELAY);
-        manager->m_status = WifiConnectionStatus::DISCONNECTED;
+        WifiConnectionStatus prev_status = manager->m_status;
+        
+        // Check if this was a failed connection attempt or normal disconnect
+        if (prev_status == WifiConnectionStatus::CONNECTING) {
+            manager->m_status = WifiConnectionStatus::FAILED;
+            ESP_LOGE(TAG, "Connection failed (reason: %d)", event->reason);
+        } else {
+            manager->m_status = WifiConnectionStatus::DISCONNECTED;
+        }
+        
         manager->m_current_ip.clear();
         manager->m_current_rssi = 0;
         
+        WifiConnectionStatus new_status = manager->m_status;
         StatusCallback status_cb = manager->m_status_callback;
         xSemaphoreGive(manager->m_mutex);
         
         if (status_cb) {
-            status_cb(WifiConnectionStatus::DISCONNECTED, "Disconnected");
+            if (new_status == WifiConnectionStatus::FAILED) {
+                status_cb(WifiConnectionStatus::FAILED, "Connection failed");
+            } else {
+                status_cb(WifiConnectionStatus::DISCONNECTED, "Disconnected");
+            }
         }
         
         xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);

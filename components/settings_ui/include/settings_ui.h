@@ -43,10 +43,6 @@ public:
     // Update WiFi scan results
     void updateWifiScanResults(const std::vector<WifiAP>& aps);
     
-    // Update network status displays
-    void updateEthStatus(bool connected, const std::string& ip);
-    void updateWifiStatus(bool connected, const std::string& ssid, const std::string& ip);
-    
     // Network manager callbacks
     void onLanStatusChanged(const std::string& status, const std::string& ip, const std::string& netmask, const std::string& gateway);
     void onWifiStatusChanged(const std::string& status, const std::string& ssid, const std::string& ip, const std::string& netmask, const std::string& gateway);
@@ -104,6 +100,7 @@ private:
     void loadWifiConfigToUI();
     
     // UI objects
+    lv_obj_t* m_settings_layer;  // Persistent layer that stays on top
     lv_obj_t* m_gear_icon;
     lv_obj_t* m_settings_screen;
     lv_obj_t* m_tabview;
@@ -121,7 +118,6 @@ private:
     lv_obj_t* m_lan_ip_input;
     lv_obj_t* m_lan_netmask_input;
     lv_obj_t* m_lan_gateway_input;
-    lv_obj_t* m_lan_status_label;
     lv_obj_t* m_lan_current_status_label;
     lv_obj_t* m_lan_current_ip_label;
     lv_obj_t* m_lan_current_netmask_label;
@@ -131,7 +127,6 @@ private:
     lv_obj_t* m_wifi_list;
     lv_obj_t* m_wifi_ssid_input;
     lv_obj_t* m_wifi_password_input;
-    lv_obj_t* m_wifi_status_label;
     lv_obj_t* m_wifi_dhcp_switch;
     lv_obj_t* m_wifi_ip_input;
     lv_obj_t* m_wifi_netmask_input;

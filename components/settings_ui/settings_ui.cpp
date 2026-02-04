@@ -29,7 +29,8 @@ SettingsUI& SettingsUI::getInstance() {
 }
 
 SettingsUI::SettingsUI() 
-    : m_gear_icon(nullptr)
+    : m_settings_layer(nullptr)
+    , m_gear_icon(nullptr)
     , m_settings_screen(nullptr)
     , m_tabview(nullptr)
     , m_keyboard(nullptr)
@@ -42,7 +43,6 @@ SettingsUI::SettingsUI()
     , m_lan_ip_input(nullptr)
     , m_lan_netmask_input(nullptr)
     , m_lan_gateway_input(nullptr)
-    , m_lan_status_label(nullptr)
     , m_lan_current_status_label(nullptr)
     , m_lan_current_ip_label(nullptr)
     , m_lan_current_netmask_label(nullptr)
@@ -50,7 +50,6 @@ SettingsUI::SettingsUI()
     , m_wifi_list(nullptr)
     , m_wifi_ssid_input(nullptr)
     , m_wifi_password_input(nullptr)
-    , m_wifi_status_label(nullptr)
     , m_wifi_dhcp_switch(nullptr)
     , m_wifi_ip_input(nullptr)
     , m_wifi_netmask_input(nullptr)
@@ -65,7 +64,7 @@ SettingsUI::SettingsUI()
     , m_wifi_radio_signal_label(nullptr)
     , m_wifi_radio_channel_label(nullptr)
     , m_visible(false)
-    , m_broker_uri("mqtt://192.168.100.1")
+    , m_broker_uri("mqtt://")
     , m_config_topic("hmi/config") {
     // Initialize network config with defaults
     m_network_config.lan_dhcp = true;
@@ -78,7 +77,18 @@ SettingsUI::~SettingsUI() {
 }
 
 void SettingsUI::init(lv_obj_t* parent_screen) {
-    createGearIcon(parent_screen);
+    // Create a persistent layer for settings UI that stays on top
+    m_settings_layer = lv_obj_create(parent_screen);
+    lv_obj_set_size(m_settings_layer, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_opa(m_settings_layer, LV_OPA_TRANSP, 0);  // Transparent background
+    lv_obj_set_style_border_width(m_settings_layer, 0, 0);  // No border
+    lv_obj_clear_flag(m_settings_layer, LV_OBJ_FLAG_SCROLLABLE);  // Not scrollable
+    lv_obj_clear_flag(m_settings_layer, LV_OBJ_FLAG_CLICKABLE);  // Don't block clicks - let events pass through
+    lv_obj_add_flag(m_settings_layer, LV_OBJ_FLAG_FLOATING);  // Always on top
+    lv_obj_add_flag(m_settings_layer, LV_OBJ_FLAG_EVENT_BUBBLE);  // Pass events to widgets below
+    lv_obj_move_foreground(m_settings_layer);
+    
+    createGearIcon(m_settings_layer);
     loadSettings();
     // Note: Network config is loaded by managers on their init()
     // We'll load from managers when creating the UI tabs
@@ -195,6 +205,11 @@ void SettingsUI::init(lv_obj_t* parent_screen) {
     });
     
     ESP_LOGI(TAG, "Network manager callbacks registered");
+    
+    // Create settings screen (hidden initially)
+    createSettingsScreen();
+    lv_obj_add_flag(m_settings_screen, LV_OBJ_FLAG_HIDDEN);
+    ESP_LOGI(TAG, "Settings screen created (hidden)");
 }
 
 void SettingsUI::createGearIcon(lv_obj_t* parent) {
@@ -215,8 +230,8 @@ void SettingsUI::createGearIcon(lv_obj_t* parent) {
 }
 
 void SettingsUI::createSettingsScreen() {
-    // Create tabview directly on screen (no container)
-    m_tabview = lv_tabview_create(lv_screen_active());
+    // Create tabview on settings layer
+    m_tabview = lv_tabview_create(m_settings_layer);
     lv_obj_set_size(m_tabview, LV_PCT(100), LV_PCT(100));
     lv_obj_align(m_tabview, LV_ALIGN_CENTER, 0, 0);
     
@@ -266,11 +281,9 @@ void SettingsUI::destroySettingsScreen() {
         m_lan_ip_input = nullptr;
         m_lan_netmask_input = nullptr;
         m_lan_gateway_input = nullptr;
-        m_lan_status_label = nullptr;
         m_wifi_list = nullptr;
         m_wifi_ssid_input = nullptr;
         m_wifi_password_input = nullptr;
-        m_wifi_status_label = nullptr;
         m_wifi_dhcp_switch = nullptr;
         m_wifi_ip_input = nullptr;
         m_wifi_netmask_input = nullptr;
@@ -998,26 +1011,41 @@ void SettingsUI::createAboutTab(lv_obj_t* tab) {
 }
 
 void SettingsUI::show() {
-    if (!m_visible) {
-        createSettingsScreen();
+    if (!m_visible && m_settings_screen) {
+        // Move settings screen back on screen
+        lv_obj_align(m_settings_screen, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_style_bg_opa(m_settings_layer, LV_OPA_50, 0);  // Semi-transparent backdrop
+        lv_obj_set_style_bg_color(m_settings_layer, lv_color_hex(0x000000), 0);
+        
+        lv_obj_clear_flag(m_settings_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(m_settings_screen);
         m_visible = true;
+        ESP_LOGI(TAG, "Settings screen shown");
     }
 }
 
 void SettingsUI::hide() {
-    if (m_visible) {
-        destroySettingsScreen();
+    if (m_visible && m_settings_screen) {
+        // Hide keyboard if visible
+        if (m_keyboard) {
+            lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        }
+        
+        // Move settings screen off-screen (gear icon stays visible)
+        lv_obj_set_pos(m_settings_screen, 0, -5000);
+        lv_obj_add_flag(m_settings_screen, LV_OBJ_FLAG_HIDDEN);
+        
+        // Make layer transparent again
+        lv_obj_set_style_bg_opa(m_settings_layer, LV_OPA_TRANSP, 0);
+        
         m_visible = false;
+        ESP_LOGI(TAG, "Settings screen hidden");
     }
 }
 
 void SettingsUI::bringToFront() {
-    if (m_gear_icon) {
-        lv_obj_move_foreground(m_gear_icon);
-    }
-    // Also bring settings screen to front if visible
-    if (m_visible && m_tabview) {
-        lv_obj_move_foreground(m_tabview);
+    if (m_settings_layer) {
+        lv_obj_move_foreground(m_settings_layer);
     }
 }
 
@@ -1229,25 +1257,25 @@ void SettingsUI::wifi_connect_clicked_cb(lv_event_t* e) {
     std::string ssid = lv_textarea_get_text(ui->m_wifi_ssid_input);
     if (ssid.empty()) {
         ESP_LOGW(TAG, "No WiFi SSID entered");
-        lv_label_set_text(ui->m_wifi_status_label, "Status: Enter SSID first");
+        if (ui->m_wifi_radio_conn_state_label) {
+            lv_label_set_text(ui->m_wifi_radio_conn_state_label, "Enter SSID first");
+            lv_obj_set_style_text_color(ui->m_wifi_radio_conn_state_label, lv_color_hex(0xFF0000), 0);
+        }
         return;
     }
     
     std::string password = lv_textarea_get_text(ui->m_wifi_password_input);
     
-    lv_label_set_text(ui->m_wifi_status_label, "Status: Connecting...");
-    lv_label_set_text_fmt(ui->m_wifi_status_label, "Connecting to %s...", ssid.c_str());
-    
-    WirelessManager& wifi = WirelessManager::getInstance();
-    esp_err_t err = wifi.connect(ssid, password, 15000);
-    
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "WiFi connected successfully");
-        ui->updateWifiStatus(true, ssid, wifi.getIpAddress());
-    } else {
-        ESP_LOGE(TAG, "WiFi connection failed: %s", esp_err_to_name(err));
-        lv_label_set_text(ui->m_wifi_status_label, "Status: Connection failed");
+    // Set initial connecting state
+    if (ui->m_wifi_radio_conn_state_label) {
+        lv_label_set_text_fmt(ui->m_wifi_radio_conn_state_label, "Connecting to %s...", ssid.c_str());
+        lv_obj_set_style_text_color(ui->m_wifi_radio_conn_state_label, lv_color_hex(0xFFFF00), 0);
     }
+    
+    // Initiate connection - status updates will come via callback
+    WirelessManager& wifi = WirelessManager::getInstance();
+    wifi.connect(ssid, password, 15000);
+    ESP_LOGI(TAG, "WiFi connection initiated for: %s", ssid.c_str());
 }
 
 void SettingsUI::textarea_focused_cb(lv_event_t* e) {
@@ -1274,6 +1302,7 @@ void SettingsUI::textarea_focused_cb(lv_event_t* e) {
         }
         
         lv_obj_clear_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(ui->m_keyboard);  // Ensure keyboard is on top
         
         // Get keyboard and screen dimensions
         int32_t keyboard_height = lv_obj_get_height(ui->m_keyboard);
@@ -1316,15 +1345,17 @@ void SettingsUI::textarea_defocused_cb(lv_event_t* e) {
 
 void SettingsUI::createKeyboard() {
     if (!m_keyboard) {
+        // Create keyboard on root screen, not settings layer
         m_keyboard = lv_keyboard_create(lv_screen_active());
         lv_obj_set_size(m_keyboard, LV_PCT(100), LV_PCT(40));
         lv_obj_align(m_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
         lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);  // Start hidden
+        lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_FLOATING);  // Always on top
         
         // Add callback for when Enter is pressed on keyboard
         lv_obj_add_event_cb(m_keyboard, keyboard_ready_cb, LV_EVENT_READY, this);
         
-        ESP_LOGI(TAG, "Keyboard created");
+        ESP_LOGI(TAG, "Keyboard created on root screen (floating)");
     }
 }
 
@@ -1425,9 +1456,9 @@ void SettingsUI::performWifiScan() {
     ESP_LOGI(TAG, "Starting WiFi scan...");
     
     // Update status to show scanning
-    if (m_wifi_status_label) {
-        lv_label_set_text(m_wifi_status_label, "Scanning...");
-        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFFAA00), 0);
+    if (m_wifi_radio_conn_state_label) {
+        lv_label_set_text(m_wifi_radio_conn_state_label, "Scanning...");
+        lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFFAA00), 0);
     }
     
     WirelessManager& wifi = WirelessManager::getInstance();
@@ -1450,16 +1481,16 @@ void SettingsUI::performWifiScan() {
             // Update UI from LVGL task context
             updateWifiScanResults(aps);
             
-            if (m_wifi_status_label) {
-                lv_label_set_text(m_wifi_status_label, "Scan complete");
-                lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0x00FF00), 0);
+            if (m_wifi_radio_conn_state_label) {
+                lv_label_set_text(m_wifi_radio_conn_state_label, "Scan complete");
+                lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0x00FF00), 0);
             }
         } else {
             ESP_LOGE(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
             
-            if (m_wifi_status_label) {
-                lv_label_set_text(m_wifi_status_label, "Scan failed");
-                lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFF0000), 0);
+            if (m_wifi_radio_conn_state_label) {
+                lv_label_set_text(m_wifi_radio_conn_state_label, "Scan failed");
+                lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFF0000), 0);
             }
         }
     }, 20);
@@ -1489,34 +1520,6 @@ void SettingsUI::updateWifiScanResults(const std::vector<WifiAP>& aps) {
         // Column 2: Security
         const char* security = ap.requires_password ? "Protected" : "Open";
         lv_table_set_cell_value(m_wifi_list, row, 2, security);
-    }
-}
-
-void SettingsUI::updateEthStatus(bool connected, const std::string& ip) {
-    if (!m_lan_status_label) return;
-    
-    if (connected && !ip.empty()) {
-        char status[128];
-        snprintf(status, sizeof(status), "Status: Connected - %s", ip.c_str());
-        lv_label_set_text(m_lan_status_label, status);
-        lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0x00FF00), 0);
-    } else {
-        lv_label_set_text(m_lan_status_label, "Status: Disconnected");
-        lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0xFF0000), 0);
-    }
-}
-
-void SettingsUI::updateWifiStatus(bool connected, const std::string& ssid, const std::string& ip) {
-    if (!m_wifi_status_label) return;
-    
-    if (connected && !ssid.empty() && !ip.empty()) {
-        char status[128];
-        snprintf(status, sizeof(status), "Connected: %s - %s", ssid.c_str(), ip.c_str());
-        lv_label_set_text(m_wifi_status_label, status);
-        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0x00FF00), 0);
-    } else {
-        lv_label_set_text(m_wifi_status_label, "Status: Not connected");
-        lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFF0000), 0);
     }
 }
 
@@ -1720,7 +1723,7 @@ void SettingsUI::onWifiStatusChanged(const std::string& status, const std::strin
     }
     
     // Update WiFi Radio tab status labels (only if they exist)
-    if (m_wifi_radio_conn_state_label && lv_obj_is_valid(m_wifi_radio_conn_state_label)) {
+    if (m_wifi_radio_conn_state_label) {
         std::string conn_text = "Status: " + status;
         lv_label_set_text(m_wifi_radio_conn_state_label, conn_text.c_str());
         
@@ -1733,7 +1736,7 @@ void SettingsUI::onWifiStatusChanged(const std::string& status, const std::strin
         }
     }
     
-    if (m_wifi_radio_ssid_label && lv_obj_is_valid(m_wifi_radio_ssid_label)) {
+    if (m_wifi_radio_ssid_label) {
         std::string ssid_text = ssid.empty() ? "Network: ---" : "Network: " + ssid;
         lv_label_set_text(m_wifi_radio_ssid_label, ssid_text.c_str());
     }
