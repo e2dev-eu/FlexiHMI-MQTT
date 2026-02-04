@@ -7,6 +7,7 @@
 #include "nvs.h"
 #include "esp_app_desc.h"
 #include "esp_idf_version.h"
+#include <tuple>
 
 static const char* TAG = "SettingsUI";
 
@@ -42,13 +43,35 @@ SettingsUI::SettingsUI()
     , m_lan_netmask_input(nullptr)
     , m_lan_gateway_input(nullptr)
     , m_lan_status_label(nullptr)
+    , m_lan_current_status_label(nullptr)
+    , m_lan_current_ip_label(nullptr)
+    , m_lan_current_netmask_label(nullptr)
+    , m_lan_current_gateway_label(nullptr)
     , m_wifi_list(nullptr)
     , m_wifi_ssid_input(nullptr)
     , m_wifi_password_input(nullptr)
     , m_wifi_status_label(nullptr)
+    , m_wifi_dhcp_switch(nullptr)
+    , m_wifi_ip_input(nullptr)
+    , m_wifi_netmask_input(nullptr)
+    , m_wifi_gateway_input(nullptr)
+    , m_wifi_current_status_label(nullptr)
+    , m_wifi_current_ssid_label(nullptr)
+    , m_wifi_current_ip_label(nullptr)
+    , m_wifi_current_netmask_label(nullptr)
+    , m_wifi_current_gateway_label(nullptr)
+    , m_wifi_radio_conn_state_label(nullptr)
+    , m_wifi_radio_ssid_label(nullptr)
+    , m_wifi_radio_signal_label(nullptr)
+    , m_wifi_radio_channel_label(nullptr)
     , m_visible(false)
     , m_broker_uri("mqtt://192.168.100.1")
     , m_config_topic("hmi/config") {
+    // Initialize network config with defaults
+    m_network_config.lan_dhcp = true;
+    m_network_config.lan_netmask = "255.255.255.0";
+    m_network_config.wifi_dhcp = true;
+    m_network_config.wifi_netmask = "255.255.255.0";
 }
 
 SettingsUI::~SettingsUI() {
@@ -57,6 +80,121 @@ SettingsUI::~SettingsUI() {
 void SettingsUI::init(lv_obj_t* parent_screen) {
     createGearIcon(parent_screen);
     loadSettings();
+    // Note: Network config is loaded by managers on their init()
+    // We'll load from managers when creating the UI tabs
+    
+    // Register callbacks with network managers to receive status updates
+    LanManager& lan = LanManager::getInstance();
+    lan.setStatusCallback([this, &lan](EthConnectionStatus status, const std::string& info) {
+        std::string status_str;
+        switch (status) {
+            case EthConnectionStatus::DISCONNECTED:
+                status_str = "Disconnected";
+                break;
+            case EthConnectionStatus::LINK_DOWN:
+                status_str = "Cable unplugged";
+                break;
+            case EthConnectionStatus::LINK_UP:
+                status_str = "Link up";
+                break;
+            case EthConnectionStatus::CONNECTED:
+                status_str = "Connected";
+                break;
+        }
+        
+        // Capture values to pass to LVGL task
+        std::string captured_status = status_str;
+        std::string captured_ip, captured_netmask, captured_gateway;
+        
+        // Get current IP info if connected
+        if (status == EthConnectionStatus::CONNECTED) {
+            captured_ip = lan.getIpAddress();
+            captured_netmask = lan.getNetmask();
+            captured_gateway = lan.getGateway();
+        }
+        
+        // Use lv_async_call to safely update UI from LVGL task
+        lv_async_call([](void* user_data) {
+            auto* data = static_cast<std::tuple<SettingsUI*, std::string, std::string, std::string, std::string>*>(user_data);
+            auto& [ui, status, ip, netmask, gateway] = *data;
+            ui->onLanStatusChanged(status, ip, netmask, gateway);
+            delete data;
+        }, new std::tuple<SettingsUI*, std::string, std::string, std::string, std::string>(this, captured_status, captured_ip, captured_netmask, captured_gateway));
+    });
+    
+    lan.setIpCallback([this](const std::string& ip, const std::string& netmask, const std::string& gateway) {
+        // Capture values to pass to LVGL task
+        std::string captured_ip = ip;
+        std::string captured_netmask = netmask;
+        std::string captured_gateway = gateway;
+        
+        // Use lv_async_call to safely update UI from LVGL task
+        lv_async_call([](void* user_data) {
+            auto* data = static_cast<std::tuple<SettingsUI*, std::string, std::string, std::string, std::string>*>(user_data);
+            auto& [ui, status, ip, netmask, gateway] = *data;
+            ui->onLanStatusChanged(status, ip, netmask, gateway);
+            delete data;
+        }, new std::tuple<SettingsUI*, std::string, std::string, std::string, std::string>(this, std::string("Connected"), captured_ip, captured_netmask, captured_gateway));
+    });
+    
+    // Register WiFi callbacks
+    WirelessManager& wifi = WirelessManager::getInstance();
+    wifi.setStatusCallback([this, &wifi](WifiConnectionStatus status, const std::string& info) {
+        std::string status_str;
+        switch (status) {
+            case WifiConnectionStatus::DISCONNECTED:
+                status_str = "Disconnected";
+                break;
+            case WifiConnectionStatus::CONNECTING:
+                status_str = "Connecting...";
+                break;
+            case WifiConnectionStatus::CONNECTED:
+                status_str = "Connected";
+                break;
+            case WifiConnectionStatus::FAILED:
+                status_str = "Connection failed";
+                break;
+        }
+        
+        // Capture values to pass to LVGL task
+        std::string captured_status = status_str;
+        std::string captured_ssid, captured_ip, captured_netmask, captured_gateway;
+        
+        // Get current info if connected
+        if (status == WifiConnectionStatus::CONNECTED) {
+            captured_ssid = wifi.getCurrentSsid();
+            captured_ip = wifi.getIpAddress();
+            captured_netmask = wifi.getNetmask();
+            captured_gateway = wifi.getGateway();
+        }
+        
+        // Use lv_async_call to safely update UI from LVGL task
+        lv_async_call([](void* user_data) {
+            auto* data = static_cast<std::tuple<SettingsUI*, std::string, std::string, std::string, std::string, std::string>*>(user_data);
+            auto& [ui, status, ssid, ip, netmask, gateway] = *data;
+            ui->onWifiStatusChanged(status, ssid, ip, netmask, gateway);
+            delete data;
+        }, new std::tuple<SettingsUI*, std::string, std::string, std::string, std::string, std::string>(this, captured_status, captured_ssid, captured_ip, captured_netmask, captured_gateway));
+    });
+    
+    wifi.setIpCallback([this](const std::string& ip, const std::string& netmask, const std::string& gateway) {
+        // Capture values to pass to LVGL task
+        WirelessManager& wifi = WirelessManager::getInstance();
+        std::string captured_ssid = wifi.getCurrentSsid();
+        std::string captured_ip = ip;
+        std::string captured_netmask = netmask;
+        std::string captured_gateway = gateway;
+        
+        // Use lv_async_call to safely update UI from LVGL task
+        lv_async_call([](void* user_data) {
+            auto* data = static_cast<std::tuple<SettingsUI*, std::string, std::string, std::string, std::string, std::string>*>(user_data);
+            auto& [ui, status, ssid, ip, netmask, gateway] = *data;
+            ui->onWifiStatusChanged(status, ssid, ip, netmask, gateway);
+            delete data;
+        }, new std::tuple<SettingsUI*, std::string, std::string, std::string, std::string, std::string>(this, std::string("Connected"), captured_ssid, captured_ip, captured_netmask, captured_gateway));
+    });
+    
+    ESP_LOGI(TAG, "Network manager callbacks registered");
 }
 
 void SettingsUI::createGearIcon(lv_obj_t* parent) {
@@ -89,7 +227,8 @@ void SettingsUI::createSettingsScreen() {
     // Create tabs
     lv_obj_t* mqtt_tab = lv_tabview_add_tab(m_tabview, "MQTT");
     lv_obj_t* lan_tab = lv_tabview_add_tab(m_tabview, "LAN");
-    lv_obj_t* wifi_tab = lv_tabview_add_tab(m_tabview, "WiFi");
+    lv_obj_t* wifi_net_tab = lv_tabview_add_tab(m_tabview, "WiFi Net");
+    lv_obj_t* wifi_radio_tab = lv_tabview_add_tab(m_tabview, "WiFi Radio");
     lv_obj_t* about_tab = lv_tabview_add_tab(m_tabview, "About");
     lv_obj_t* close_tab = lv_tabview_add_tab(m_tabview, "Close");
     (void)close_tab;  // Intentionally empty tab
@@ -97,7 +236,8 @@ void SettingsUI::createSettingsScreen() {
     // Populate tabs
     createMqttTab(mqtt_tab);
     createLanTab(lan_tab);
-    createWifiTab(wifi_tab);
+    createWifiNetworkTab(wifi_net_tab);
+    createWifiRadioTab(wifi_radio_tab);
     createAboutTab(about_tab);
     
     // Add event callback to tabview for tab changes
@@ -131,6 +271,10 @@ void SettingsUI::destroySettingsScreen() {
         m_wifi_ssid_input = nullptr;
         m_wifi_password_input = nullptr;
         m_wifi_status_label = nullptr;
+        m_wifi_dhcp_switch = nullptr;
+        m_wifi_ip_input = nullptr;
+        m_wifi_netmask_input = nullptr;
+        m_wifi_gateway_input = nullptr;
         ESP_LOGI(TAG, "Settings screen destroyed");
     }
 }
@@ -230,29 +374,52 @@ void SettingsUI::createMqttTab(lv_obj_t* tab) {
 }
 
 void SettingsUI::createLanTab(lv_obj_t* tab) {
-    int y_pos = 20;
     int field_height = 40;
+    int input_width = 280;
+    
+    // === LEFT CONTAINER (Configuration) ===
+    lv_obj_t* left_container = lv_obj_create(tab);
+    lv_obj_set_size(left_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(left_container, 10, 10);
+    lv_obj_set_style_bg_color(left_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(left_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(left_container, 1, 0);
+    lv_obj_set_style_pad_all(left_container, 15, 0);
+    lv_obj_clear_flag(left_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    int y_pos = 10;
+    
+    // Configuration header
+    lv_obj_t* config_header = lv_label_create(left_container);
+    lv_label_set_text(config_header, "Configuration");
+    lv_obj_set_pos(config_header, 0, y_pos);
+    lv_obj_set_style_text_font(config_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(config_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 35;
     
     // DHCP Switch
-    lv_obj_t* dhcp_label = lv_label_create(tab);
+    lv_obj_t* dhcp_label = lv_label_create(left_container);
     lv_label_set_text(dhcp_label, "DHCP:");
-    lv_obj_set_pos(dhcp_label, 20, y_pos);
+    lv_obj_set_pos(dhcp_label, 0, y_pos + 5);
     
-    m_lan_dhcp_switch = lv_switch_create(tab);
-    lv_obj_set_pos(m_lan_dhcp_switch, 150, y_pos);
+    m_lan_dhcp_switch = lv_switch_create(left_container);
+    lv_obj_set_pos(m_lan_dhcp_switch, 100, y_pos);
     lv_obj_add_state(m_lan_dhcp_switch, LV_STATE_CHECKED);  // Default to DHCP
     lv_obj_add_event_cb(m_lan_dhcp_switch, lan_dhcp_switch_cb, LV_EVENT_VALUE_CHANGED, this);
     
-    y_pos += 60;
+    y_pos += 50;
     
-    // Static IP fields
-    lv_obj_t* ip_label = lv_label_create(tab);
+    // IP Address
+    lv_obj_t* ip_label = lv_label_create(left_container);
     lv_label_set_text(ip_label, "IP Address:");
-    lv_obj_set_pos(ip_label, 20, y_pos);
+    lv_obj_set_pos(ip_label, 0, y_pos);
     
-    m_lan_ip_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_lan_ip_input, LV_PCT(60), field_height);
-    lv_obj_set_pos(m_lan_ip_input, LV_PCT(40), y_pos);
+    y_pos += 22;
+    
+    m_lan_ip_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_lan_ip_input, input_width, field_height);
+    lv_obj_set_pos(m_lan_ip_input, 0, y_pos);
     lv_textarea_set_one_line(m_lan_ip_input, true);
     lv_textarea_set_text(m_lan_ip_input, "");
     lv_textarea_set_accepted_chars(m_lan_ip_input, "0123456789.");
@@ -260,16 +427,18 @@ void SettingsUI::createLanTab(lv_obj_t* tab) {
     lv_obj_add_event_cb(m_lan_ip_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     lv_obj_add_state(m_lan_ip_input, LV_STATE_DISABLED);  // Disabled by default (DHCP on)
     
-    y_pos += 60;
+    y_pos += field_height + 15;
     
     // Netmask
-    lv_obj_t* netmask_label = lv_label_create(tab);
+    lv_obj_t* netmask_label = lv_label_create(left_container);
     lv_label_set_text(netmask_label, "Netmask:");
-    lv_obj_set_pos(netmask_label, 20, y_pos);
+    lv_obj_set_pos(netmask_label, 0, y_pos);
     
-    m_lan_netmask_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_lan_netmask_input, LV_PCT(60), field_height);
-    lv_obj_set_pos(m_lan_netmask_input, LV_PCT(40), y_pos);
+    y_pos += 22;
+    
+    m_lan_netmask_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_lan_netmask_input, input_width, field_height);
+    lv_obj_set_pos(m_lan_netmask_input, 0, y_pos);
     lv_textarea_set_one_line(m_lan_netmask_input, true);
     lv_textarea_set_text(m_lan_netmask_input, "255.255.255.0");
     lv_textarea_set_accepted_chars(m_lan_netmask_input, "0123456789.");
@@ -277,16 +446,18 @@ void SettingsUI::createLanTab(lv_obj_t* tab) {
     lv_obj_add_event_cb(m_lan_netmask_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     lv_obj_add_state(m_lan_netmask_input, LV_STATE_DISABLED);
     
-    y_pos += 60;
+    y_pos += field_height + 15;
     
     // Gateway
-    lv_obj_t* gateway_label = lv_label_create(tab);
+    lv_obj_t* gateway_label = lv_label_create(left_container);
     lv_label_set_text(gateway_label, "Gateway:");
-    lv_obj_set_pos(gateway_label, 20, y_pos);
+    lv_obj_set_pos(gateway_label, 0, y_pos);
     
-    m_lan_gateway_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_lan_gateway_input, LV_PCT(60), field_height);
-    lv_obj_set_pos(m_lan_gateway_input, LV_PCT(40), y_pos);
+    y_pos += 22;
+    
+    m_lan_gateway_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_lan_gateway_input, input_width, field_height);
+    lv_obj_set_pos(m_lan_gateway_input, 0, y_pos);
     lv_textarea_set_one_line(m_lan_gateway_input, true);
     lv_textarea_set_text(m_lan_gateway_input, "");
     lv_textarea_set_accepted_chars(m_lan_gateway_input, "0123456789.");
@@ -294,130 +465,461 @@ void SettingsUI::createLanTab(lv_obj_t* tab) {
     lv_obj_add_event_cb(m_lan_gateway_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     lv_obj_add_state(m_lan_gateway_input, LV_STATE_DISABLED);
     
-    y_pos += 80;
+    y_pos += field_height + 25;
     
-    // Status label
-    m_lan_status_label = lv_label_create(tab);
-    lv_label_set_text(m_lan_status_label, "Status: Checking...");
-    lv_obj_set_pos(m_lan_status_label, 20, y_pos);
-    lv_obj_set_style_text_color(m_lan_status_label, lv_color_hex(0xFFFFFF), 0);
-    
-    // Update status from LanManager
-    LanManager& lan = LanManager::getInstance();
-    if (lan.isConnected()) {
-        updateEthStatus(true, lan.getIpAddress());
-    } else {
-        updateEthStatus(false, "");
-    }
-    
-    y_pos += 60;
-    
-    // Apply button
-    lv_obj_t* apply_btn = lv_button_create(tab);
-    lv_obj_set_size(apply_btn, 150, 50);
-    lv_obj_set_pos(apply_btn, 20, y_pos);
+    // Apply button (full width of input fields)
+    lv_obj_t* apply_btn = lv_button_create(left_container);
+    lv_obj_set_size(apply_btn, input_width, 45);
+    lv_obj_set_pos(apply_btn, 0, y_pos);
     lv_obj_add_event_cb(apply_btn, lan_save_clicked_cb, LV_EVENT_CLICKED, this);
     
     lv_obj_t* apply_label = lv_label_create(apply_btn);
     lv_label_set_text(apply_label, "Apply");
     lv_obj_center(apply_label);
     
+    // === RIGHT CONTAINER (Status) ===
+    lv_obj_t* right_container = lv_obj_create(tab);
+    lv_obj_set_size(right_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(right_container, LV_PCT(52), 10);
+    lv_obj_set_style_bg_color(right_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(right_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(right_container, 1, 0);
+    lv_obj_set_style_pad_all(right_container, 15, 0);
+    lv_obj_clear_flag(right_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    y_pos = 10;
+    
+    // Status header
+    lv_obj_t* status_header = lv_label_create(right_container);
+    lv_label_set_text(status_header, "Current Status");
+    lv_obj_set_pos(status_header, 0, y_pos);
+    lv_obj_set_style_text_font(status_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(status_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 40;
+    
+    // Current connection status
+    m_lan_current_status_label = lv_label_create(right_container);
+    lv_label_set_text(m_lan_current_status_label, "Status: Checking...");
+    lv_obj_set_pos(m_lan_current_status_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_lan_current_status_label, lv_color_hex(0xFFFFFF), 0);
+    
+    y_pos += 30;
+    
+    // Current IP address
+    m_lan_current_ip_label = lv_label_create(right_container);
+    lv_label_set_text(m_lan_current_ip_label, "IP: ---");
+    lv_obj_set_pos(m_lan_current_ip_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_lan_current_ip_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Current Netmask
+    m_lan_current_netmask_label = lv_label_create(right_container);
+    lv_label_set_text(m_lan_current_netmask_label, "Netmask: ---");
+    lv_obj_set_pos(m_lan_current_netmask_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_lan_current_netmask_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Current Gateway
+    m_lan_current_gateway_label = lv_label_create(right_container);
+    lv_label_set_text(m_lan_current_gateway_label, "Gateway: ---");
+    lv_obj_set_pos(m_lan_current_gateway_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_lan_current_gateway_label, lv_color_hex(0xCCCCCC), 0);
+    
+    // Load saved LAN configuration
+    loadNetworkConfig();  // Refresh from managers
+    loadLanConfigToUI();
+    
+    // Update status from LanManager
+    LanManager& lan = LanManager::getInstance();
+    if (lan.isConnected()) {
+        std::string status = "Connected";
+        onLanStatusChanged(status, lan.getIpAddress(), lan.getNetmask(), lan.getGateway());
+    } else {
+        EthConnectionStatus status = lan.getStatus();
+        std::string status_str;
+        switch (status) {
+            case EthConnectionStatus::DISCONNECTED:
+                status_str = "Disconnected";
+                break;
+            case EthConnectionStatus::LINK_DOWN:
+                status_str = "Cable unplugged";
+                break;
+            case EthConnectionStatus::LINK_UP:
+                status_str = "Obtaining IP...";
+                break;
+            default:
+                status_str = "Unknown";
+                break;
+        }
+        onLanStatusChanged(status_str, "", "", "");
+    }
+    
     ESP_LOGI(TAG, "LAN tab created");
 }
 
-void SettingsUI::createWifiTab(lv_obj_t* tab) {
-    int y_pos = 20;
+void SettingsUI::createWifiNetworkTab(lv_obj_t* tab) {
+    int field_height = 40;
+    int input_width = 280;
     
-    // Scan button
-    lv_obj_t* scan_btn = lv_button_create(tab);
-    lv_obj_set_size(scan_btn, 150, 50);
-    lv_obj_set_pos(scan_btn, 20, y_pos);
-    lv_obj_add_event_cb(scan_btn, wifi_scan_clicked_cb, LV_EVENT_CLICKED, this);
+    // === LEFT CONTAINER (Configuration) ===
+    lv_obj_t* left_container = lv_obj_create(tab);
+    lv_obj_set_size(left_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(left_container, 10, 10);
+    lv_obj_set_style_bg_color(left_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(left_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(left_container, 1, 0);
+    lv_obj_set_style_pad_all(left_container, 15, 0);
+    lv_obj_clear_flag(left_container, LV_OBJ_FLAG_SCROLLABLE);
     
-    lv_obj_t* scan_label = lv_label_create(scan_btn);
-    lv_label_set_text(scan_label, LV_SYMBOL_REFRESH " Scan");
-    lv_obj_center(scan_label);
+    int y_pos = 10;
     
-    y_pos += 70;
+    // Configuration header
+    lv_obj_t* config_header = lv_label_create(left_container);
+    lv_label_set_text(config_header, "IP Configuration");
+    lv_obj_set_pos(config_header, 0, y_pos);
+    lv_obj_set_style_text_font(config_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(config_header, lv_color_hex(0x00BFFF), 0);
     
-    // WiFi table (SSID, Signal dB, Security)
-    m_wifi_list = lv_table_create(tab);
-    lv_obj_set_size(m_wifi_list, LV_PCT(95), 200);
-    lv_obj_set_pos(m_wifi_list, 10, y_pos);
+    y_pos += 35;
     
-    // Set up 3 columns
-    lv_table_set_column_count(m_wifi_list, 3);
-    lv_table_set_column_width(m_wifi_list, 0, 450);  // SSID
-    lv_table_set_column_width(m_wifi_list, 1, 100);  // Signal
-    lv_table_set_column_width(m_wifi_list, 2, 130);  // Security
+    // DHCP Switch
+    lv_obj_t* dhcp_label = lv_label_create(left_container);
+    lv_label_set_text(dhcp_label, "DHCP:");
+    lv_obj_set_pos(dhcp_label, 0, y_pos + 5);
     
-    // Add header row
-    lv_table_set_cell_value(m_wifi_list, 0, 0, "SSID");
-    lv_table_set_cell_value(m_wifi_list, 0, 1, "Signal (dB)");
-    lv_table_set_cell_value(m_wifi_list, 0, 2, "Security");
+    m_wifi_dhcp_switch = lv_switch_create(left_container);
+    lv_obj_set_pos(m_wifi_dhcp_switch, 100, y_pos);
+    lv_obj_add_state(m_wifi_dhcp_switch, LV_STATE_CHECKED);  // Default to DHCP
+    lv_obj_add_event_cb(m_wifi_dhcp_switch, wifi_dhcp_switch_cb, LV_EVENT_VALUE_CHANGED, this);
     
-    // Add event callback for table cell clicks
-    lv_obj_add_event_cb(m_wifi_list, wifi_ap_clicked_cb, LV_EVENT_PRESSED, this);
+    y_pos += 50;
     
-    y_pos += 220;
+    // IP Address
+    lv_obj_t* ip_label = lv_label_create(left_container);
+    lv_label_set_text(ip_label, "IP Address:");
+    lv_obj_set_pos(ip_label, 0, y_pos);
+    
+    y_pos += 22;
+    
+    m_wifi_ip_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_wifi_ip_input, input_width, field_height);
+    lv_obj_set_pos(m_wifi_ip_input, 0, y_pos);
+    lv_textarea_set_one_line(m_wifi_ip_input, true);
+    lv_textarea_set_text(m_wifi_ip_input, "");
+    lv_textarea_set_accepted_chars(m_wifi_ip_input, "0123456789.");
+    lv_obj_add_event_cb(m_wifi_ip_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_wifi_ip_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_wifi_ip_input, LV_STATE_DISABLED);  // Disabled by default (DHCP on)
+    
+    y_pos += field_height + 15;
+    
+    // Netmask
+    lv_obj_t* netmask_label = lv_label_create(left_container);
+    lv_label_set_text(netmask_label, "Netmask:");
+    lv_obj_set_pos(netmask_label, 0, y_pos);
+    
+    y_pos += 22;
+    
+    m_wifi_netmask_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_wifi_netmask_input, input_width, field_height);
+    lv_obj_set_pos(m_wifi_netmask_input, 0, y_pos);
+    lv_textarea_set_one_line(m_wifi_netmask_input, true);
+    lv_textarea_set_text(m_wifi_netmask_input, "255.255.255.0");
+    lv_textarea_set_accepted_chars(m_wifi_netmask_input, "0123456789.");
+    lv_obj_add_event_cb(m_wifi_netmask_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_wifi_netmask_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_wifi_netmask_input, LV_STATE_DISABLED);
+    
+    y_pos += field_height + 15;
+    
+    // Gateway
+    lv_obj_t* gateway_label = lv_label_create(left_container);
+    lv_label_set_text(gateway_label, "Gateway:");
+    lv_obj_set_pos(gateway_label, 0, y_pos);
+    
+    y_pos += 22;
+    
+    m_wifi_gateway_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_wifi_gateway_input, input_width, field_height);
+    lv_obj_set_pos(m_wifi_gateway_input, 0, y_pos);
+    lv_textarea_set_one_line(m_wifi_gateway_input, true);
+    lv_textarea_set_text(m_wifi_gateway_input, "");
+    lv_textarea_set_accepted_chars(m_wifi_gateway_input, "0123456789.");
+    lv_obj_add_event_cb(m_wifi_gateway_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
+    lv_obj_add_event_cb(m_wifi_gateway_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
+    lv_obj_add_state(m_wifi_gateway_input, LV_STATE_DISABLED);
+    
+    y_pos += field_height + 25;
+    
+    // Apply button (full width of input fields)
+    lv_obj_t* apply_btn = lv_button_create(left_container);
+    lv_obj_set_size(apply_btn, input_width, 45);
+    lv_obj_set_pos(apply_btn, 0, y_pos);
+    lv_obj_add_event_cb(apply_btn, wifi_save_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* apply_label = lv_label_create(apply_btn);
+    lv_label_set_text(apply_label, "Apply");
+    lv_obj_center(apply_label);
+    
+    // === RIGHT CONTAINER (Status) ===
+    lv_obj_t* right_container = lv_obj_create(tab);
+    lv_obj_set_size(right_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(right_container, LV_PCT(52), 10);
+    lv_obj_set_style_bg_color(right_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(right_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(right_container, 1, 0);
+    lv_obj_set_style_pad_all(right_container, 15, 0);
+    lv_obj_clear_flag(right_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    y_pos = 10;
+    
+    // Status header
+    lv_obj_t* status_header = lv_label_create(right_container);
+    lv_label_set_text(status_header, "Current Status");
+    lv_obj_set_pos(status_header, 0, y_pos);
+    lv_obj_set_style_text_font(status_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(status_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 40;
+    
+    // Current connection status
+    m_wifi_current_status_label = lv_label_create(right_container);
+    lv_label_set_text(m_wifi_current_status_label, "Status: Not connected");
+    lv_obj_set_pos(m_wifi_current_status_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_current_status_label, lv_color_hex(0xFFFFFF), 0);
+    
+    y_pos += 30;
+    
+    // Current SSID
+    m_wifi_current_ssid_label = lv_label_create(right_container);
+    lv_label_set_text(m_wifi_current_ssid_label, "SSID: ---");
+    lv_obj_set_pos(m_wifi_current_ssid_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_current_ssid_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Current IP address
+    m_wifi_current_ip_label = lv_label_create(right_container);
+    lv_label_set_text(m_wifi_current_ip_label, "IP: ---");
+    lv_obj_set_pos(m_wifi_current_ip_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_current_ip_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Current Netmask
+    m_wifi_current_netmask_label = lv_label_create(right_container);
+    lv_label_set_text(m_wifi_current_netmask_label, "Netmask: ---");
+    lv_obj_set_pos(m_wifi_current_netmask_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_current_netmask_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Current Gateway
+    m_wifi_current_gateway_label = lv_label_create(right_container);
+    lv_label_set_text(m_wifi_current_gateway_label, "Gateway: ---");
+    lv_obj_set_pos(m_wifi_current_gateway_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_current_gateway_label, lv_color_hex(0xCCCCCC), 0);
+    
+    // Load saved WiFi configuration
+    loadWifiConfigToUI();
+    
+    // Update status from WirelessManager
+    WirelessManager& wifi = WirelessManager::getInstance();
+    if (wifi.isConnected()) {
+        std::string status = "Connected";
+        onWifiStatusChanged(status, wifi.getCurrentSsid(), wifi.getIpAddress(), wifi.getNetmask(), wifi.getGateway());
+    } else {
+        WifiConnectionStatus status = wifi.getStatus();
+        std::string status_str;
+        switch (status) {
+            case WifiConnectionStatus::DISCONNECTED:
+                status_str = "Disconnected";
+                break;
+            case WifiConnectionStatus::CONNECTING:
+                status_str = "Connecting...";
+                break;
+            case WifiConnectionStatus::FAILED:
+                status_str = "Connection failed";
+                break;
+            default:
+                status_str = "Unknown";
+                break;
+        }
+        onWifiStatusChanged(status_str, "", "", "", "");
+    }
+    
+    ESP_LOGI(TAG, "WiFi Network tab created");
+}
+
+void SettingsUI::createWifiRadioTab(lv_obj_t* tab) {
+    int field_height = 40;
+    int input_width = 280;
+    
+    // === LEFT CONTAINER (Connection) ===
+    lv_obj_t* left_container = lv_obj_create(tab);
+    lv_obj_set_size(left_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(left_container, 10, 10);
+    lv_obj_set_style_bg_color(left_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(left_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(left_container, 1, 0);
+    lv_obj_set_style_pad_all(left_container, 15, 0);
+    lv_obj_clear_flag(left_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    int y_pos = 10;
+    
+    // Connection header
+    lv_obj_t* config_header = lv_label_create(left_container);
+    lv_label_set_text(config_header, "Connect to Network");
+    lv_obj_set_pos(config_header, 0, y_pos);
+    lv_obj_set_style_text_font(config_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(config_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 35;
     
     // SSID input
-    lv_obj_t* ssid_label = lv_label_create(tab);
+    lv_obj_t* ssid_label = lv_label_create(left_container);
     lv_label_set_text(ssid_label, "SSID:");
-    lv_obj_set_pos(ssid_label, 20, y_pos);
+    lv_obj_set_pos(ssid_label, 0, y_pos);
     
-    m_wifi_ssid_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_wifi_ssid_input, LV_PCT(60), 40);
-    lv_obj_set_pos(m_wifi_ssid_input, LV_PCT(40), y_pos);
+    y_pos += 22;
+    
+    m_wifi_ssid_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_wifi_ssid_input, input_width, field_height);
+    lv_obj_set_pos(m_wifi_ssid_input, 0, y_pos);
     lv_textarea_set_one_line(m_wifi_ssid_input, true);
-    lv_textarea_set_placeholder_text(m_wifi_ssid_input, "Select AP or type SSID");
+    lv_textarea_set_placeholder_text(m_wifi_ssid_input, "Select or type");
     lv_obj_add_event_cb(m_wifi_ssid_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_wifi_ssid_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += 60;
+    y_pos += field_height + 15;
     
     // Password input
-    lv_obj_t* password_label = lv_label_create(tab);
+    lv_obj_t* password_label = lv_label_create(left_container);
     lv_label_set_text(password_label, "Password:");
-    lv_obj_set_pos(password_label, 20, y_pos);
+    lv_obj_set_pos(password_label, 0, y_pos);
     
-    m_wifi_password_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_wifi_password_input, LV_PCT(60), 40);
-    lv_obj_set_pos(m_wifi_password_input, LV_PCT(40), y_pos);
+    y_pos += 22;
+    
+    m_wifi_password_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_wifi_password_input, input_width, field_height);
+    lv_obj_set_pos(m_wifi_password_input, 0, y_pos);
     lv_textarea_set_one_line(m_wifi_password_input, true);
     lv_textarea_set_password_mode(m_wifi_password_input, true);
     lv_obj_add_event_cb(m_wifi_password_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_wifi_password_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += 60;
+    y_pos += field_height + 25;
     
     // Connect button
-    lv_obj_t* connect_btn = lv_button_create(tab);
-    lv_obj_set_size(connect_btn, 150, 50);
-    lv_obj_set_pos(connect_btn, 20, y_pos);
+    lv_obj_t* connect_btn = lv_button_create(left_container);
+    lv_obj_set_size(connect_btn, 135, 45);
+    lv_obj_set_pos(connect_btn, 0, y_pos);
     lv_obj_add_event_cb(connect_btn, wifi_connect_clicked_cb, LV_EVENT_CLICKED, this);
     
     lv_obj_t* connect_label = lv_label_create(connect_btn);
     lv_label_set_text(connect_label, "Connect");
     lv_obj_center(connect_label);
     
+    // Scan button
+    lv_obj_t* scan_btn = lv_button_create(left_container);
+    lv_obj_set_size(scan_btn, 135, 45);
+    lv_obj_set_pos(scan_btn, 145, y_pos);
+    lv_obj_add_event_cb(scan_btn, wifi_scan_clicked_cb, LV_EVENT_CLICKED, this);
+    
+    lv_obj_t* scan_label = lv_label_create(scan_btn);
+    lv_label_set_text(scan_label, LV_SYMBOL_REFRESH " Scan");
+    lv_obj_center(scan_label);
+    
     y_pos += 60;
     
-    // Status label
-    m_wifi_status_label = lv_label_create(tab);
-    lv_label_set_text(m_wifi_status_label, "Status: Not connected");
-    lv_obj_set_pos(m_wifi_status_label, 20, y_pos);
-    lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFFFFFF), 0);
+    // Separator
+    lv_obj_t* separator = lv_obj_create(left_container);
+    lv_obj_set_size(separator, input_width, 2);
+    lv_obj_set_pos(separator, 0, y_pos);
+    lv_obj_set_style_bg_color(separator, lv_color_hex(0x555555), 0);
+    lv_obj_set_style_border_width(separator, 0, 0);
     
-    // Update status from WirelessManager
-    WirelessManager& wifi = WirelessManager::getInstance();
-    if (wifi.isConnected()) {
-        updateWifiStatus(true, wifi.getCurrentSsid(), wifi.getIpAddress());
-    } else {
-        updateWifiStatus(false, "", "");
-    }
+    y_pos += 15;
     
-    ESP_LOGI(TAG, "WiFi tab created");
+    // Status section header
+    lv_obj_t* status_section_header = lv_label_create(left_container);
+    lv_label_set_text(status_section_header, "Connection Status");
+    lv_obj_set_pos(status_section_header, 0, y_pos);
+    lv_obj_set_style_text_font(status_section_header, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(status_section_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 30;
+    
+    // Connection state
+    m_wifi_radio_conn_state_label = lv_label_create(left_container);
+    lv_label_set_text(m_wifi_radio_conn_state_label, "Status: Not connected");
+    lv_obj_set_pos(m_wifi_radio_conn_state_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFFFFFF), 0);
+    
+    y_pos += 25;
+    
+    // SSID
+    m_wifi_radio_ssid_label = lv_label_create(left_container);
+    lv_label_set_text(m_wifi_radio_ssid_label, "Network: ---");
+    lv_obj_set_pos(m_wifi_radio_ssid_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_radio_ssid_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Signal strength
+    m_wifi_radio_signal_label = lv_label_create(left_container);
+    lv_label_set_text(m_wifi_radio_signal_label, "Signal: ---");
+    lv_obj_set_pos(m_wifi_radio_signal_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_radio_signal_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Channel
+    m_wifi_radio_channel_label = lv_label_create(left_container);
+    lv_label_set_text(m_wifi_radio_channel_label, "Channel: ---");
+    lv_obj_set_pos(m_wifi_radio_channel_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_wifi_radio_channel_label, lv_color_hex(0xCCCCCC), 0);
+    
+    // === RIGHT CONTAINER (WiFi AP List) ===
+    lv_obj_t* right_container = lv_obj_create(tab);
+    lv_obj_set_size(right_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(right_container, LV_PCT(52), 10);
+    lv_obj_set_style_bg_color(right_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(right_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(right_container, 1, 0);
+    lv_obj_set_style_pad_all(right_container, 15, 0);
+    lv_obj_clear_flag(right_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // WiFi AP List header
+    lv_obj_t* list_header = lv_label_create(right_container);
+    lv_label_set_text(list_header, "Available Networks");
+    lv_obj_set_pos(list_header, 0, 10);
+    lv_obj_set_style_text_font(list_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(list_header, lv_color_hex(0x00BFFF), 0);
+    
+    // WiFi table - fill the rest of the container
+    m_wifi_list = lv_table_create(right_container);
+    lv_obj_set_size(m_wifi_list, LV_PCT(100), LV_PCT(90));
+    lv_obj_set_pos(m_wifi_list, 0, 45);
+    
+    // Set up 3 columns
+    lv_table_set_column_count(m_wifi_list, 3);
+    lv_table_set_column_width(m_wifi_list, 0, 180);  // SSID
+    lv_table_set_column_width(m_wifi_list, 1, 120);   // Signal
+    lv_table_set_column_width(m_wifi_list, 2, 120);   // Security
+    
+    // Add header row
+    lv_table_set_cell_value(m_wifi_list, 0, 0, "SSID");
+    lv_table_set_cell_value(m_wifi_list, 0, 1, "Signal");
+    lv_table_set_cell_value(m_wifi_list, 0, 2, "Security");
+    
+    // Add event callback for table cell clicks
+    lv_obj_add_event_cb(m_wifi_list, wifi_ap_clicked_cb, LV_EVENT_PRESSED, this);
+    
+    ESP_LOGI(TAG, "WiFi Radio tab created");
 }
 
 void SettingsUI::createAboutTab(lv_obj_t* tab) {
@@ -569,10 +1071,60 @@ void SettingsUI::tab_changed_cb(lv_event_t* e) {
     
     ESP_LOGI(TAG, "Tab changed to index: %lu", tab_idx);
     
-    // Tab indices: 0=MQTT, 1=LAN, 2=WiFi, 3=About, 4=Close
-    if (tab_idx == 4) {
+    // Tab indices: 0=MQTT, 1=LAN, 2=WiFi Network, 3=WiFi Radio, 4=About, 5=Close
+    if (tab_idx == 5) {
         ESP_LOGI(TAG, "Close tab selected, hiding settings");
         ui->hide();
+    } else if (tab_idx == 1) {
+        // LAN tab - refresh status
+        ESP_LOGI(TAG, "LAN tab activated, refreshing status");
+        LanManager& lan = LanManager::getInstance();
+        if (lan.isConnected()) {
+            ui->onLanStatusChanged("Connected", lan.getIpAddress(), lan.getNetmask(), lan.getGateway());
+        } else {
+            EthConnectionStatus status = lan.getStatus();
+            std::string status_str;
+            switch (status) {
+                case EthConnectionStatus::DISCONNECTED:
+                    status_str = "Disconnected";
+                    break;
+                case EthConnectionStatus::LINK_DOWN:
+                    status_str = "Cable unplugged";
+                    break;
+                case EthConnectionStatus::LINK_UP:
+                    status_str = "Obtaining IP...";
+                    break;
+                default:
+                    status_str = "Unknown";
+                    break;
+            }
+            ui->onLanStatusChanged(status_str, "", "", "");
+        }
+    } else if (tab_idx == 2 || tab_idx == 3) {
+        // WiFi Network or WiFi Radio tab - refresh status
+        ESP_LOGI(TAG, "WiFi tab activated, refreshing status");
+        WirelessManager& wifi = WirelessManager::getInstance();
+        if (wifi.isConnected()) {
+            ui->onWifiStatusChanged("Connected", wifi.getCurrentSsid(), wifi.getIpAddress(), wifi.getNetmask(), wifi.getGateway());
+        } else {
+            WifiConnectionStatus status = wifi.getStatus();
+            std::string status_str;
+            switch (status) {
+                case WifiConnectionStatus::DISCONNECTED:
+                    status_str = "Disconnected";
+                    break;
+                case WifiConnectionStatus::CONNECTING:
+                    status_str = "Connecting...";
+                    break;
+                case WifiConnectionStatus::FAILED:
+                    status_str = "Connection failed";
+                    break;
+                default:
+                    status_str = "Unknown";
+                    break;
+            }
+            ui->onWifiStatusChanged(status_str, "", "", "", "");
+        }
     }
 }
 
@@ -606,21 +1158,30 @@ void SettingsUI::lan_save_clicked_cb(lv_event_t* e) {
     }
     
     bool dhcp_enabled = lv_obj_has_state(ui->m_lan_dhcp_switch, LV_STATE_CHECKED);
-    LanManager& lan = LanManager::getInstance();
     
+    // Update network config
+    ui->m_network_config.lan_dhcp = dhcp_enabled;
+    if (!dhcp_enabled) {
+        ui->m_network_config.lan_ip = lv_textarea_get_text(ui->m_lan_ip_input);
+        ui->m_network_config.lan_netmask = lv_textarea_get_text(ui->m_lan_netmask_input);
+        ui->m_network_config.lan_gateway = lv_textarea_get_text(ui->m_lan_gateway_input);
+    }
+    
+    // Apply and save configuration via LAN Manager
+    LanManager& lan = LanManager::getInstance();
     if (dhcp_enabled) {
-        // Apply DHCP
         lan.setIpConfig(EthIpConfigMode::DHCP, nullptr);
-        ESP_LOGI(TAG, "LAN configured for DHCP");
+        lan.saveConfig();
+        ESP_LOGI(TAG, "LAN configured for DHCP and saved");
     } else {
-        // Apply static IP
         EthStaticIpConfig config;
-        config.ip = lv_textarea_get_text(ui->m_lan_ip_input);
-        config.netmask = lv_textarea_get_text(ui->m_lan_netmask_input);
-        config.gateway = lv_textarea_get_text(ui->m_lan_gateway_input);
+        config.ip = ui->m_network_config.lan_ip;
+        config.netmask = ui->m_network_config.lan_netmask;
+        config.gateway = ui->m_network_config.lan_gateway;
         
         lan.setIpConfig(EthIpConfigMode::STATIC, &config);
-        ESP_LOGI(TAG, "LAN configured for static IP: %s", config.ip.c_str());
+        lan.saveConfig();
+        ESP_LOGI(TAG, "LAN configured for static IP: %s and saved", config.ip.c_str());
     }
 }
 
@@ -699,7 +1260,10 @@ void SettingsUI::textarea_focused_cb(lv_event_t* e) {
         // Set keyboard mode based on textarea type
         if (textarea == ui->m_lan_ip_input || 
             textarea == ui->m_lan_netmask_input || 
-            textarea == ui->m_lan_gateway_input) {
+            textarea == ui->m_lan_gateway_input ||
+            textarea == ui->m_wifi_ip_input ||
+            textarea == ui->m_wifi_netmask_input ||
+            textarea == ui->m_wifi_gateway_input) {
             // Use number mode for IP address fields
             lv_keyboard_set_mode(ui->m_keyboard, LV_KEYBOARD_MODE_NUMBER);
             ESP_LOGD(TAG, "Keyboard mode set to NUMBER for IP field");
@@ -954,4 +1518,226 @@ void SettingsUI::updateWifiStatus(bool connected, const std::string& ssid, const
         lv_label_set_text(m_wifi_status_label, "Status: Not connected");
         lv_obj_set_style_text_color(m_wifi_status_label, lv_color_hex(0xFF0000), 0);
     }
+}
+
+// Network configuration persistence
+bool SettingsUI::loadNetworkConfig() {
+    // Load LAN configuration from LAN Manager
+    LanManager& lan = LanManager::getInstance();
+    m_network_config.lan_dhcp = (lan.getIpMode() == EthIpConfigMode::DHCP);
+    EthStaticIpConfig lan_config = lan.getStaticConfig();
+    m_network_config.lan_ip = lan_config.ip;
+    m_network_config.lan_netmask = lan_config.netmask;
+    m_network_config.lan_gateway = lan_config.gateway;
+    
+    // Load WiFi configuration from Wireless Manager
+    WirelessManager& wifi = WirelessManager::getInstance();
+    m_network_config.wifi_dhcp = (wifi.getIpMode() == IpConfigMode::DHCP);
+    StaticIpConfig wifi_config = wifi.getStaticConfig();
+    m_network_config.wifi_ip = wifi_config.ip;
+    m_network_config.wifi_netmask = wifi_config.netmask;
+    m_network_config.wifi_gateway = wifi_config.gateway;
+    
+    ESP_LOGI(TAG, "Network config loaded from managers");
+    return true;
+}
+
+bool SettingsUI::saveNetworkConfig() {
+    // Delegate to managers - they handle their own NVS storage
+    ESP_LOGI(TAG, "Network config will be saved by respective managers");
+    return true;
+}
+
+void SettingsUI::loadLanConfigToUI() {
+    if (!m_lan_dhcp_switch || !m_lan_ip_input) return;
+    
+    // Set DHCP switch state
+    if (m_network_config.lan_dhcp) {
+        lv_obj_add_state(m_lan_dhcp_switch, LV_STATE_CHECKED);
+        lv_obj_add_state(m_lan_ip_input, LV_STATE_DISABLED);
+        lv_obj_add_state(m_lan_netmask_input, LV_STATE_DISABLED);
+        lv_obj_add_state(m_lan_gateway_input, LV_STATE_DISABLED);
+    } else {
+        lv_obj_clear_state(m_lan_dhcp_switch, LV_STATE_CHECKED);
+        lv_obj_clear_state(m_lan_ip_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(m_lan_netmask_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(m_lan_gateway_input, LV_STATE_DISABLED);
+    }
+    
+    // Set IP values
+    lv_textarea_set_text(m_lan_ip_input, m_network_config.lan_ip.c_str());
+    lv_textarea_set_text(m_lan_netmask_input, m_network_config.lan_netmask.c_str());
+    lv_textarea_set_text(m_lan_gateway_input, m_network_config.lan_gateway.c_str());
+}
+
+void SettingsUI::loadWifiConfigToUI() {
+    if (!m_wifi_dhcp_switch || !m_wifi_ip_input) return;
+    
+    // Set DHCP switch state
+    if (m_network_config.wifi_dhcp) {
+        lv_obj_add_state(m_wifi_dhcp_switch, LV_STATE_CHECKED);
+        lv_obj_add_state(m_wifi_ip_input, LV_STATE_DISABLED);
+        lv_obj_add_state(m_wifi_netmask_input, LV_STATE_DISABLED);
+        lv_obj_add_state(m_wifi_gateway_input, LV_STATE_DISABLED);
+    } else {
+        lv_obj_clear_state(m_wifi_dhcp_switch, LV_STATE_CHECKED);
+        lv_obj_clear_state(m_wifi_ip_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(m_wifi_netmask_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(m_wifi_gateway_input, LV_STATE_DISABLED);
+    }
+    
+    // Set IP values
+    lv_textarea_set_text(m_wifi_ip_input, m_network_config.wifi_ip.c_str());
+    lv_textarea_set_text(m_wifi_netmask_input, m_network_config.wifi_netmask.c_str());
+    lv_textarea_set_text(m_wifi_gateway_input, m_network_config.wifi_gateway.c_str());
+}
+
+void SettingsUI::wifi_dhcp_switch_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    lv_obj_t* sw = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    
+    bool dhcp_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    
+    // Enable/disable static IP fields based on DHCP state
+    if (dhcp_enabled) {
+        lv_obj_add_state(ui->m_wifi_ip_input, LV_STATE_DISABLED);
+        lv_obj_add_state(ui->m_wifi_netmask_input, LV_STATE_DISABLED);
+        lv_obj_add_state(ui->m_wifi_gateway_input, LV_STATE_DISABLED);
+        ESP_LOGI(TAG, "WiFi DHCP enabled, static IP fields disabled");
+    } else {
+        lv_obj_clear_state(ui->m_wifi_ip_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(ui->m_wifi_netmask_input, LV_STATE_DISABLED);
+        lv_obj_clear_state(ui->m_wifi_gateway_input, LV_STATE_DISABLED);
+        ESP_LOGI(TAG, "WiFi DHCP disabled, static IP fields enabled");
+    }
+}
+
+void SettingsUI::wifi_save_clicked_cb(lv_event_t* e) {
+    SettingsUI* ui = static_cast<SettingsUI*>(lv_event_get_user_data(e));
+    
+    // Hide keyboard if visible
+    if (ui->m_keyboard) {
+        lv_obj_add_flag(ui->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_center(ui->m_settings_screen);
+    }
+    
+    bool dhcp_enabled = lv_obj_has_state(ui->m_wifi_dhcp_switch, LV_STATE_CHECKED);
+    
+    // Update network config
+    ui->m_network_config.wifi_dhcp = dhcp_enabled;
+    if (!dhcp_enabled) {
+        ui->m_network_config.wifi_ip = lv_textarea_get_text(ui->m_wifi_ip_input);
+        ui->m_network_config.wifi_netmask = lv_textarea_get_text(ui->m_wifi_netmask_input);
+        ui->m_network_config.wifi_gateway = lv_textarea_get_text(ui->m_wifi_gateway_input);
+    }
+    
+    // Apply and save configuration via Wireless Manager
+    WirelessManager& wifi = WirelessManager::getInstance();
+    if (dhcp_enabled) {
+        wifi.setIpConfig(IpConfigMode::DHCP, nullptr);
+        wifi.saveConfig();
+        ESP_LOGI(TAG, "WiFi configured for DHCP and saved");
+    } else {
+        StaticIpConfig config;
+        config.ip = ui->m_network_config.wifi_ip;
+        config.netmask = ui->m_network_config.wifi_netmask;
+        config.gateway = ui->m_network_config.wifi_gateway;
+        
+        wifi.setIpConfig(IpConfigMode::STATIC, &config);
+        wifi.saveConfig();
+        ESP_LOGI(TAG, "WiFi configured for static IP: %s and saved", config.ip.c_str());
+    }
+}
+
+// Network manager callback implementations
+void SettingsUI::onLanStatusChanged(const std::string& status, const std::string& ip, const std::string& netmask, const std::string& gateway) {
+    if (!m_lan_current_status_label) return;
+    
+    // Update status label with appropriate color
+    std::string status_text = "Status: " + status;
+    lv_label_set_text(m_lan_current_status_label, status_text.c_str());
+    
+    if (status == "Connected") {
+        lv_obj_set_style_text_color(m_lan_current_status_label, lv_color_hex(0x00FF00), 0);
+    } else if (status == "Obtaining IP..." || status == "Link up") {
+        lv_obj_set_style_text_color(m_lan_current_status_label, lv_color_hex(0xFFFF00), 0);
+    } else {
+        lv_obj_set_style_text_color(m_lan_current_status_label, lv_color_hex(0xFF6666), 0);
+    }
+    
+    // Update IP information
+    if (m_lan_current_ip_label) {
+        std::string ip_text = ip.empty() ? "IP: ---" : "IP: " + ip;
+        lv_label_set_text(m_lan_current_ip_label, ip_text.c_str());
+    }
+    
+    if (m_lan_current_netmask_label) {
+        std::string netmask_text = netmask.empty() ? "Netmask: ---" : "Netmask: " + netmask;
+        lv_label_set_text(m_lan_current_netmask_label, netmask_text.c_str());
+    }
+    
+    if (m_lan_current_gateway_label) {
+        std::string gateway_text = gateway.empty() ? "Gateway: ---" : "Gateway: " + gateway;
+        lv_label_set_text(m_lan_current_gateway_label, gateway_text.c_str());
+    }
+}
+
+void SettingsUI::onWifiStatusChanged(const std::string& status, const std::string& ssid, const std::string& ip, const std::string& netmask, const std::string& gateway) {
+    if (!m_wifi_current_status_label) return;
+    
+    // Update status label with appropriate color
+    std::string status_text = "Status: " + status;
+    lv_label_set_text(m_wifi_current_status_label, status_text.c_str());
+    
+    if (status == "Connected") {
+        lv_obj_set_style_text_color(m_wifi_current_status_label, lv_color_hex(0x00FF00), 0);
+    } else if (status == "Connecting..." || status.find("Obtaining") != std::string::npos) {
+        lv_obj_set_style_text_color(m_wifi_current_status_label, lv_color_hex(0xFFFF00), 0);
+    } else {
+        lv_obj_set_style_text_color(m_wifi_current_status_label, lv_color_hex(0xFF6666), 0);
+    }
+    
+    // Update SSID
+    if (m_wifi_current_ssid_label) {
+        std::string ssid_text = ssid.empty() ? "SSID: ---" : "SSID: " + ssid;
+        lv_label_set_text(m_wifi_current_ssid_label, ssid_text.c_str());
+    }
+    
+    // Update IP information
+    if (m_wifi_current_ip_label) {
+        std::string ip_text = ip.empty() ? "IP: ---" : "IP: " + ip;
+        lv_label_set_text(m_wifi_current_ip_label, ip_text.c_str());
+    }
+    
+    if (m_wifi_current_netmask_label) {
+        std::string netmask_text = netmask.empty() ? "Netmask: ---" : "Netmask: " + netmask;
+        lv_label_set_text(m_wifi_current_netmask_label, netmask_text.c_str());
+    }
+    
+    if (m_wifi_current_gateway_label) {
+        std::string gateway_text = gateway.empty() ? "Gateway: ---" : "Gateway: " + gateway;
+        lv_label_set_text(m_wifi_current_gateway_label, gateway_text.c_str());
+    }
+    
+    // Update WiFi Radio tab status labels (only if they exist)
+    if (m_wifi_radio_conn_state_label && lv_obj_is_valid(m_wifi_radio_conn_state_label)) {
+        std::string conn_text = "Status: " + status;
+        lv_label_set_text(m_wifi_radio_conn_state_label, conn_text.c_str());
+        
+        if (status == "Connected") {
+            lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0x00FF00), 0);
+        } else if (status == "Connecting..." || status.find("Obtaining") != std::string::npos) {
+            lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFFFF00), 0);
+        } else {
+            lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFF6666), 0);
+        }
+    }
+    
+    if (m_wifi_radio_ssid_label && lv_obj_is_valid(m_wifi_radio_ssid_label)) {
+        std::string ssid_text = ssid.empty() ? "Network: ---" : "Network: " + ssid;
+        lv_label_set_text(m_wifi_radio_ssid_label, ssid_text.c_str());
+    }
+    
+    // Signal and channel would need additional data from WirelessManager
+    // For now, these remain as placeholders
 }

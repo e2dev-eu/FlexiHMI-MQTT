@@ -34,12 +34,22 @@ public:
     // Save settings to NVS
     bool saveSettings();
     
+    // Load network configuration from NVS
+    bool loadNetworkConfig();
+    
+    // Save network configuration to NVS
+    bool saveNetworkConfig();
+    
     // Update WiFi scan results
     void updateWifiScanResults(const std::vector<WifiAP>& aps);
     
     // Update network status displays
     void updateEthStatus(bool connected, const std::string& ip);
     void updateWifiStatus(bool connected, const std::string& ssid, const std::string& ip);
+    
+    // Network manager callbacks
+    void onLanStatusChanged(const std::string& status, const std::string& ip, const std::string& netmask, const std::string& gateway);
+    void onWifiStatusChanged(const std::string& status, const std::string& ssid, const std::string& ip, const std::string& netmask, const std::string& gateway);
     
     // Getters for settings
     const std::string& getBrokerUri() const { return m_broker_uri; }
@@ -61,7 +71,8 @@ private:
     // Tab creation functions
     void createMqttTab(lv_obj_t* tab);
     void createLanTab(lv_obj_t* tab);
-    void createWifiTab(lv_obj_t* tab);
+    void createWifiNetworkTab(lv_obj_t* tab);
+    void createWifiRadioTab(lv_obj_t* tab);
     void createAboutTab(lv_obj_t* tab);
     
     // Callbacks
@@ -81,10 +92,16 @@ private:
     static void wifi_scan_clicked_cb(lv_event_t* e);
     static void wifi_ap_clicked_cb(lv_event_t* e);
     static void wifi_connect_clicked_cb(lv_event_t* e);
+    static void wifi_dhcp_switch_cb(lv_event_t* e);
+    static void wifi_save_clicked_cb(lv_event_t* e);
     
     void createKeyboard();
     void destroyKeyboard();
     void performWifiScan();
+    
+    // Helper methods for network config
+    void loadLanConfigToUI();
+    void loadWifiConfigToUI();
     
     // UI objects
     lv_obj_t* m_gear_icon;
@@ -105,12 +122,32 @@ private:
     lv_obj_t* m_lan_netmask_input;
     lv_obj_t* m_lan_gateway_input;
     lv_obj_t* m_lan_status_label;
+    lv_obj_t* m_lan_current_status_label;
+    lv_obj_t* m_lan_current_ip_label;
+    lv_obj_t* m_lan_current_netmask_label;
+    lv_obj_t* m_lan_current_gateway_label;
     
     // WiFi tab objects
     lv_obj_t* m_wifi_list;
     lv_obj_t* m_wifi_ssid_input;
     lv_obj_t* m_wifi_password_input;
     lv_obj_t* m_wifi_status_label;
+    lv_obj_t* m_wifi_dhcp_switch;
+    lv_obj_t* m_wifi_ip_input;
+    lv_obj_t* m_wifi_netmask_input;
+    lv_obj_t* m_wifi_gateway_input;
+    lv_obj_t* m_wifi_current_status_label;
+    lv_obj_t* m_wifi_current_ssid_label;
+    lv_obj_t* m_wifi_current_ip_label;
+    lv_obj_t* m_wifi_current_netmask_label;
+    lv_obj_t* m_wifi_current_gateway_label;
+    
+    // WiFi Radio tab status labels
+    lv_obj_t* m_wifi_radio_conn_state_label;
+    lv_obj_t* m_wifi_radio_ssid_label;
+    lv_obj_t* m_wifi_radio_signal_label;
+    lv_obj_t* m_wifi_radio_channel_label;
+    
     std::string m_selected_ssid;
     
     bool m_visible;
@@ -121,4 +158,16 @@ private:
     std::string m_password;
     std::string m_client_id;
     std::string m_config_topic;
+    
+    // Network configuration
+    struct NetworkConfig {
+        bool lan_dhcp;
+        std::string lan_ip;
+        std::string lan_netmask;
+        std::string lan_gateway;
+        bool wifi_dhcp;
+        std::string wifi_ip;
+        std::string wifi_netmask;
+        std::string wifi_gateway;
+    } m_network_config;
 };

@@ -170,24 +170,6 @@ static void init_network_managers(void)
     // Initialize LAN Manager
     LanManager &lan = LanManager::getInstance();
 
-    // Set up LAN callbacks
-    lan.setStatusCallback([](EthConnectionStatus status, const std::string &info)
-                          {
-        const char* status_str = "Unknown";
-        switch (status) {
-            case EthConnectionStatus::DISCONNECTED: status_str = "Disconnected"; break;
-            case EthConnectionStatus::LINK_DOWN: status_str = "Link Down"; break;
-            case EthConnectionStatus::LINK_UP: status_str = "Link Up"; break;
-            case EthConnectionStatus::CONNECTED: status_str = "Connected"; break;
-        }
-        ESP_LOGI("LAN", "Status: %s - %s", status_str, info.c_str()); });
-
-    lan.setIpCallback([](const std::string &ip, const std::string &netmask, const std::string &gateway)
-                      {
-                          ESP_LOGI("LAN", "IP: %s, Netmask: %s, Gateway: %s", ip.c_str(), netmask.c_str(), gateway.c_str());
-                          // Note: Status info UI is already updated by ethernet_init event handlers
-                      });
-
     if (lan.init() != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to initialize LAN Manager");
@@ -199,22 +181,6 @@ static void init_network_managers(void)
 
     // Initialize Wireless Manager
     WirelessManager &wifi = WirelessManager::getInstance();
-
-    // Set up Wi-Fi callbacks
-    wifi.setStatusCallback([](WifiConnectionStatus status, const std::string &info)
-                           {
-        const char* status_str = "Unknown";
-        switch (status) {
-            case WifiConnectionStatus::DISCONNECTED: status_str = "Disconnected"; break;
-            case WifiConnectionStatus::CONNECTING: status_str = "Connecting"; break;
-            case WifiConnectionStatus::CONNECTED: status_str = "Connected"; break;
-            case WifiConnectionStatus::FAILED: status_str = "Failed"; break;
-        }
-        ESP_LOGI("WiFi", "Status: %s - %s", status_str, info.c_str()); });
-
-    wifi.setIpCallback([](const std::string &ip, const std::string &netmask, const std::string &gateway)
-                       { ESP_LOGI("WiFi", "IP: %s, Netmask: %s, Gateway: %s", ip.c_str(), netmask.c_str(), gateway.c_str()); });
-
     if (wifi.init() != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to initialize Wireless Manager");

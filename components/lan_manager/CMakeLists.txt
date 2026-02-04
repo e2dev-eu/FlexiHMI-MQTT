@@ -8,4 +8,5 @@ idf_component_register(
         esp_eth
         esp_netif
         esp_event
+        nvs_flash
 )

@@ -5,9 +5,18 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_mac.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include <cstring>
 
 static const char* TAG = "LanManager";
+
+// NVS keys
+static const char* NVS_NAMESPACE = "lan_config";
+static const char* NVS_KEY_IP_MODE = "ip_mode";
+static const char* NVS_KEY_IP = "ip";
+static const char* NVS_KEY_NETMASK = "netmask";
+static const char* NVS_KEY_GATEWAY = "gateway";
 
 LanManager& LanManager::getInstance() {
     static LanManager instance;
@@ -140,6 +149,10 @@ esp_err_t LanManager::init() {
     ESP_LOGI(TAG, "LAN Manager initialized successfully (MAC: %s)", m_mac_address.c_str());
     
     xSemaphoreGive(m_mutex);
+    
+    // Load and apply saved configuration
+    loadConfig();
+    
     return ESP_OK;
 }
 
@@ -221,6 +234,9 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
         m_current_ip = config->ip;
         m_current_netmask = config->netmask;
         m_current_gateway = config->gateway;
+        
+        // Static IP is configured, so we're effectively connected
+        m_status = EthConnectionStatus::CONNECTED;
 
         // Set DNS servers
         if (!config->dns1.empty()) {
@@ -245,10 +261,24 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
 
         ESP_LOGI(TAG, "Static IP configured: %s", config->ip.c_str());
         
-        // Call IP callback
-        if (m_ip_callback) {
-            m_ip_callback(m_current_ip, m_current_netmask, m_current_gateway);
+        // Get callbacks before releasing mutex
+        StatusCallback status_cb = m_status_callback;
+        IpCallback ip_cb = m_ip_callback;
+        std::string ip_str = m_current_ip;
+        std::string netmask_str = m_current_netmask;
+        std::string gateway_str = m_current_gateway;
+        
+        xSemaphoreGive(m_mutex);
+        
+        // Call callbacks outside mutex
+        if (status_cb) {
+            status_cb(EthConnectionStatus::CONNECTED, "Connected");
         }
+        if (ip_cb) {
+            ip_cb(ip_str, netmask_str, gateway_str);
+        }
+        
+        return ESP_OK;
     } else {
         // Start DHCP client
         esp_err_t ret = esp_netif_dhcpc_start(m_eth_netif);
@@ -259,9 +289,9 @@ esp_err_t LanManager::setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig*
         }
 
         ESP_LOGI(TAG, "DHCP enabled");
+        xSemaphoreGive(m_mutex);
     }
 
-    xSemaphoreGive(m_mutex);
     return ESP_OK;
 }
 
@@ -436,4 +466,123 @@ void LanManager::ip_event_handler(void* arg, esp_event_base_t event_base,
             ip_cb(ip_str, mask_str, gw_str);
         }
     }
+}
+
+esp_err_t LanManager::saveConfig() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for writing: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
+    // Save IP mode
+    uint8_t mode = (m_ip_mode == EthIpConfigMode::DHCP) ? 1 : 0;
+    err = nvs_set_u8(nvs_handle, NVS_KEY_IP_MODE, mode);
+    
+    // Save static config
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_IP, m_static_config.ip.c_str());
+    }
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_NETMASK, m_static_config.netmask.c_str());
+    }
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_GATEWAY, m_static_config.gateway.c_str());
+    }
+    
+    xSemaphoreGive(m_mutex);
+    
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs_handle);
+    }
+    
+    nvs_close(nvs_handle);
+    
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "LAN config saved to NVS (Mode: %s)", 
+                 mode ? "DHCP" : "Static");
+    } else {
+        ESP_LOGE(TAG, "Failed to save LAN config: %s", esp_err_to_name(err));
+    }
+    
+    return err;
+}
+
+esp_err_t LanManager::loadConfig() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "No saved LAN config in NVS, using DHCP");
+        // Apply default DHCP configuration
+        setIpConfig(EthIpConfigMode::DHCP, nullptr);
+        return ESP_ERR_NOT_FOUND;
+    }
+    
+    // Read IP mode
+    uint8_t mode = 1; // Default to DHCP
+    nvs_get_u8(nvs_handle, NVS_KEY_IP_MODE, &mode);
+    
+    // Helper to read strings
+    auto read_str = [&](const char* key, std::string& value) {
+        size_t required_size = 0;
+        esp_err_t err = nvs_get_str(nvs_handle, key, nullptr, &required_size);
+        if (err == ESP_OK && required_size > 0) {
+            char* buffer = (char*)malloc(required_size);
+            if (buffer) {
+                err = nvs_get_str(nvs_handle, key, buffer, &required_size);
+                if (err == ESP_OK) {
+                    value = buffer;
+                }
+                free(buffer);
+            }
+        }
+    };
+    
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
+    m_ip_mode = (mode == 1) ? EthIpConfigMode::DHCP : EthIpConfigMode::STATIC;
+    read_str(NVS_KEY_IP, m_static_config.ip);
+    read_str(NVS_KEY_NETMASK, m_static_config.netmask);
+    read_str(NVS_KEY_GATEWAY, m_static_config.gateway);
+    
+    EthIpConfigMode loaded_mode = m_ip_mode;
+    EthStaticIpConfig loaded_config = m_static_config;
+    
+    xSemaphoreGive(m_mutex);
+    
+    nvs_close(nvs_handle);
+    
+    ESP_LOGI(TAG, "Loaded LAN config from NVS (Mode: %s)", 
+             (loaded_mode == EthIpConfigMode::DHCP) ? "DHCP" : "Static");
+    if (loaded_mode == EthIpConfigMode::STATIC) {
+        ESP_LOGI(TAG, "  IP: %s", loaded_config.ip.c_str());
+        ESP_LOGI(TAG, "  Netmask: %s", loaded_config.netmask.c_str());
+        ESP_LOGI(TAG, "  Gateway: %s", loaded_config.gateway.c_str());
+    }
+    
+    // Apply the loaded configuration
+    if (loaded_mode == EthIpConfigMode::DHCP) {
+        setIpConfig(EthIpConfigMode::DHCP, nullptr);
+    } else {
+        setIpConfig(EthIpConfigMode::STATIC, &loaded_config);
+    }
+    
+    return ESP_OK;
+}
+
+EthIpConfigMode LanManager::getIpMode() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    EthIpConfigMode mode = m_ip_mode;
+    xSemaphoreGive(m_mutex);
+    return mode;
+}
+
+EthStaticIpConfig LanManager::getStaticConfig() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    EthStaticIpConfig config = m_static_config;
+    xSemaphoreGive(m_mutex);
+    return config;
 }

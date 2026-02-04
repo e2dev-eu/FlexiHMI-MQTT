@@ -3,11 +3,20 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include <cstring>
 
 static const char* TAG = "WirelessManager";
+
+// NVS keys
+static const char* NVS_NAMESPACE = "wifi_config";
+static const char* NVS_KEY_IP_MODE = "ip_mode";
+static const char* NVS_KEY_IP = "ip";
+static const char* NVS_KEY_NETMASK = "netmask";
+static const char* NVS_KEY_GATEWAY = "gateway";
 
 // Event group bits
 #define WIFI_CONNECTED_BIT   BIT0
@@ -127,6 +136,10 @@ esp_err_t WirelessManager::init() {
     ESP_LOGI(TAG, "Wireless Manager initialized successfully");
     
     xSemaphoreGive(m_mutex);
+    
+    // Load and apply saved configuration
+    loadConfig();
+    
     return ESP_OK;
 }
 
@@ -573,6 +586,20 @@ std::string WirelessManager::getIpAddress() const {
     return ip;
 }
 
+std::string WirelessManager::getNetmask() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string netmask = m_current_netmask;
+    xSemaphoreGive(m_mutex);
+    return netmask;
+}
+
+std::string WirelessManager::getGateway() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    std::string gateway = m_current_gateway;
+    xSemaphoreGive(m_mutex);
+    return gateway;
+}
+
 int8_t WirelessManager::getRssi() const {
     xSemaphoreTake(m_mutex, portMAX_DELAY);
     int8_t rssi = m_current_rssi;
@@ -667,4 +694,123 @@ void WirelessManager::ip_event_handler(void* arg, esp_event_base_t event_base,
         
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
+}
+
+esp_err_t WirelessManager::saveConfig() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for writing: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
+    // Save IP mode
+    uint8_t mode = (m_ip_mode == IpConfigMode::DHCP) ? 1 : 0;
+    err = nvs_set_u8(nvs_handle, NVS_KEY_IP_MODE, mode);
+    
+    // Save static config
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_IP, m_static_config.ip.c_str());
+    }
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_NETMASK, m_static_config.netmask.c_str());
+    }
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, NVS_KEY_GATEWAY, m_static_config.gateway.c_str());
+    }
+    
+    xSemaphoreGive(m_mutex);
+    
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs_handle);
+    }
+    
+    nvs_close(nvs_handle);
+    
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "WiFi config saved to NVS (Mode: %s)", 
+                 mode ? "DHCP" : "Static");
+    } else {
+        ESP_LOGE(TAG, "Failed to save WiFi config: %s", esp_err_to_name(err));
+    }
+    
+    return err;
+}
+
+esp_err_t WirelessManager::loadConfig() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "No saved WiFi config in NVS, using DHCP");
+        // Apply default DHCP configuration
+        setIpConfig(IpConfigMode::DHCP, nullptr);
+        return ESP_ERR_NOT_FOUND;
+    }
+    
+    // Read IP mode
+    uint8_t mode = 1; // Default to DHCP
+    nvs_get_u8(nvs_handle, NVS_KEY_IP_MODE, &mode);
+    
+    // Helper to read strings
+    auto read_str = [&](const char* key, std::string& value) {
+        size_t required_size = 0;
+        esp_err_t err = nvs_get_str(nvs_handle, key, nullptr, &required_size);
+        if (err == ESP_OK && required_size > 0) {
+            char* buffer = (char*)malloc(required_size);
+            if (buffer) {
+                err = nvs_get_str(nvs_handle, key, buffer, &required_size);
+                if (err == ESP_OK) {
+                    value = buffer;
+                }
+                free(buffer);
+            }
+        }
+    };
+    
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    
+    m_ip_mode = (mode == 1) ? IpConfigMode::DHCP : IpConfigMode::STATIC;
+    read_str(NVS_KEY_IP, m_static_config.ip);
+    read_str(NVS_KEY_NETMASK, m_static_config.netmask);
+    read_str(NVS_KEY_GATEWAY, m_static_config.gateway);
+    
+    IpConfigMode loaded_mode = m_ip_mode;
+    StaticIpConfig loaded_config = m_static_config;
+    
+    xSemaphoreGive(m_mutex);
+    
+    nvs_close(nvs_handle);
+    
+    ESP_LOGI(TAG, "Loaded WiFi config from NVS (Mode: %s)", 
+             (loaded_mode == IpConfigMode::DHCP) ? "DHCP" : "Static");
+    if (loaded_mode == IpConfigMode::STATIC) {
+        ESP_LOGI(TAG, "  IP: %s", loaded_config.ip.c_str());
+        ESP_LOGI(TAG, "  Netmask: %s", loaded_config.netmask.c_str());
+        ESP_LOGI(TAG, "  Gateway: %s", loaded_config.gateway.c_str());
+    }
+    
+    // Apply the loaded configuration
+    if (loaded_mode == IpConfigMode::DHCP) {
+        setIpConfig(IpConfigMode::DHCP, nullptr);
+    } else {
+        setIpConfig(IpConfigMode::STATIC, &loaded_config);
+    }
+    
+    return ESP_OK;
+}
+
+IpConfigMode WirelessManager::getIpMode() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    IpConfigMode mode = m_ip_mode;
+    xSemaphoreGive(m_mutex);
+    return mode;
+}
+
+StaticIpConfig WirelessManager::getStaticConfig() const {
+    xSemaphoreTake(m_mutex, portMAX_DELAY);
+    StaticIpConfig config = m_static_config;
+    xSemaphoreGive(m_mutex);
+    return config;
 }

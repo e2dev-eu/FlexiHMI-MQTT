@@ -149,6 +149,34 @@ public:
     esp_err_t setIpConfig(IpConfigMode mode, const StaticIpConfig* config = nullptr);
 
     /**
+     * @brief Save current IP configuration to NVS
+     * 
+     * @return esp_err_t ESP_OK on success
+     */
+    esp_err_t saveConfig();
+
+    /**
+     * @brief Load IP configuration from NVS
+     * 
+     * @return esp_err_t ESP_OK on success, ESP_ERR_NOT_FOUND if no config saved
+     */
+    esp_err_t loadConfig();
+
+    /**
+     * @brief Get current IP configuration mode
+     * 
+     * @return IpConfigMode Current mode (DHCP or STATIC)
+     */
+    IpConfigMode getIpMode() const;
+
+    /**
+     * @brief Get current static IP configuration
+     * 
+     * @return StaticIpConfig Current static config (valid only if mode is STATIC)
+     */
+    StaticIpConfig getStaticConfig() const;
+
+    /**
      * @brief Get current connection status
      * 
      * @return WifiConnectionStatus Current status
@@ -175,6 +203,20 @@ public:
      * @return std::string Current IP address (empty if not connected)
      */
     std::string getIpAddress() const;
+
+    /**
+     * @brief Get current netmask
+     * 
+     * @return std::string Current netmask (empty if not connected)
+     */
+    std::string getNetmask() const;
+
+    /**
+     * @brief Get current gateway
+     * 
+     * @return std::string Current gateway (empty if not connected)
+     */
+    std::string getGateway() const;
 
     /**
      * @brief Get current RSSI (signal strength)

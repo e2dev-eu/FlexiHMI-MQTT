@@ -89,6 +89,34 @@ public:
     esp_err_t setIpConfig(EthIpConfigMode mode, const EthStaticIpConfig* config = nullptr);
 
     /**
+     * @brief Save current IP configuration to NVS
+     * 
+     * @return esp_err_t ESP_OK on success
+     */
+    esp_err_t saveConfig();
+
+    /**
+     * @brief Load IP configuration from NVS
+     * 
+     * @return esp_err_t ESP_OK on success, ESP_ERR_NOT_FOUND if no config saved
+     */
+    esp_err_t loadConfig();
+
+    /**
+     * @brief Get current IP configuration mode
+     * 
+     * @return EthIpConfigMode Current mode (DHCP or STATIC)
+     */
+    EthIpConfigMode getIpMode() const;
+
+    /**
+     * @brief Get current static IP configuration
+     * 
+     * @return EthStaticIpConfig Current static config (valid only if mode is STATIC)
+     */
+    EthStaticIpConfig getStaticConfig() const;
+
+    /**
      * @brief Get current connection status
      * 
      * @return EthConnectionStatus Current status
