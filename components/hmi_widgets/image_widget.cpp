@@ -11,9 +11,9 @@
 static const char *TAG = "ImageWidget";
 
 static uint8_t* alloc_image_buffer(size_t size) {
-    uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!buf) {
-        ESP_LOGE(TAG, "Failed to allocate %d bytes in DMA-capable internal memory", size);
+        buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_8BIT);
     }
     return buf;
 }
@@ -59,30 +59,21 @@ void ImageWidget::schedule_free(lv_image_dsc_t* dsc, uint8_t* data) {
     }
 }
 
-static uint16_t read_le16(const uint8_t* data) {
-    return static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
+static uint32_t read_be32(const uint8_t* data) {
+    return static_cast<uint32_t>((static_cast<uint32_t>(data[0]) << 24) |
+        (static_cast<uint32_t>(data[1]) << 16) |
+        (static_cast<uint32_t>(data[2]) << 8) |
+        static_cast<uint32_t>(data[3]));
 }
 
-static uint32_t read_le32(const uint8_t* data) {
-    return static_cast<uint32_t>(data[0] |
-        (static_cast<uint32_t>(data[1]) << 8) |
-        (static_cast<uint32_t>(data[2]) << 16) |
-        (static_cast<uint32_t>(data[3]) << 24));
-}
-
-static bool is_pjpg_data(const uint8_t* data, size_t size) {
-    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
-    if (!data || size < 22) {
+static bool is_qoi_data(const uint8_t* data, size_t size) {
+    if (!data || size < 14) {
         return false;
     }
-    if (memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
-        return false;
-    }
-    return true;
+    return memcmp(data, "qoif", 4) == 0;
 }
 
-static bool is_pjpg_base64_prefix(const std::string& base64_data) {
-    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
+static bool is_qoi_base64(const std::string& base64_data) {
     if (base64_data.size() < 12) {
         return false;
     }
@@ -98,37 +89,24 @@ static bool is_pjpg_base64_prefix(const std::string& base64_data) {
     int ret = mbedtls_base64_decode(decoded, sizeof(decoded), &decoded_len,
                                     (const unsigned char*)base64_data.data(),
                                     prefix_len);
-    if (ret != 0 || decoded_len < sizeof(pjpg_magic)) {
+    if (ret != 0 || decoded_len < 4) {
         return false;
     }
 
-    return memcmp(decoded, pjpg_magic, sizeof(pjpg_magic)) == 0;
+    return memcmp(decoded, "qoif", 4) == 0;
 }
 
-static bool get_pjpg_dimensions(const uint8_t* data, size_t size, uint16_t* out_w, uint16_t* out_h) {
-    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
-    if (!data || size < 22 || memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
+static bool get_qoi_dimensions(const uint8_t* data, size_t size, uint16_t* out_w, uint16_t* out_h) {
+    if (!data || size < 14 || memcmp(data, "qoif", 4) != 0) {
         return false;
     }
-    const uint8_t* p = data + 8; // magic(7) + version(1)
-    uint16_t w = read_le16(p);
-    uint16_t h = read_le16(p + 2);
-    if (w == 0 || h == 0) {
+    uint32_t w = read_be32(data + 4);
+    uint32_t h = read_be32(data + 8);
+    if (w == 0 || h == 0 || w > 65535 || h > 65535) {
         return false;
     }
-    *out_w = w;
-    *out_h = h;
-    return true;
-}
-
-static bool get_pjpg_alpha_size(const uint8_t* data, size_t size, uint32_t* out_alpha_size) {
-    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
-    if (!data || size < 22 || memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
-        return false;
-    }
-    const uint8_t* p = data + 8; // magic(7) + version(1)
-    uint32_t alpha_size = read_le32(p + 8); // width(2) + height(2) + rgb_size(4)
-    *out_alpha_size = alpha_size;
+    *out_w = static_cast<uint16_t>(w);
+    *out_h = static_cast<uint16_t>(h);
     return true;
 }
 
@@ -334,12 +312,12 @@ bool ImageWidget::loadImageFromPath(const std::string& path) {
         return false;
     }
     
-    // Check file extension for supported format (PJPG only)
+    // Check file extension for supported format (QOI)
     const char* ext = strrchr(path.c_str(), '.');
     if (ext) {
         ESP_LOGI(TAG, "File extension: %s", ext);
-        if (strcasecmp(ext, ".pjpg") != 0) {
-            ESP_LOGE(TAG, "Unsupported file extension: %s (supported: pjpg)", ext);
+        if (strcasecmp(ext, ".qoi") != 0) {
+            ESP_LOGE(TAG, "Unsupported file extension: %s (supported: qoi)", ext);
             return false;
         }
     } else {
@@ -390,8 +368,7 @@ bool ImageWidget::loadImageFromPath(const std::string& path) {
         ESP_LOGW(TAG, "Image source is NULL");
     }
     
-    // Note: LVGL will handle image decoding (PJPG only)
-    // PJPG uses the ESP32-P4 hardware JPEG decoder via esp_lvgl_adapter
+    // Note: LVGL will handle QOI decoding
     
     ESP_LOGI(TAG, "Successfully loaded image from: %s", path.c_str());
     return true;
@@ -408,8 +385,8 @@ bool ImageWidget::isBase64Data(const std::string& data) {
 bool ImageWidget::loadImageFromBase64(const std::string& base64_data) {
     ESP_LOGD(TAG, "Decoding base64 image data (%d bytes)", base64_data.size());
 
-    if (!is_pjpg_base64_prefix(base64_data)) {
-        ESP_LOGE(TAG, "Base64 data is not PJPG (_PJPG__ header missing)");
+    if (!is_qoi_base64(base64_data)) {
+        ESP_LOGE(TAG, "Base64 data is not QOI");
         return false;
     }
     
@@ -447,28 +424,16 @@ bool ImageWidget::loadImageFromBase64(const std::string& base64_data) {
     
     ESP_LOGD(TAG, "Successfully decoded %d bytes of image data", decoded_size);
 
-    if (!is_pjpg_data(decoded_data, decoded_size)) {
-        ESP_LOGE(TAG, "Decoded data is not PJPG (_PJPG__ header missing)");
-        free_image_buffer(decoded_data);
-        return false;
-    }
-
     uint16_t img_w = 0;
     uint16_t img_h = 0;
-    if (!get_pjpg_dimensions(decoded_data, decoded_size, &img_w, &img_h)) {
-        ESP_LOGE(TAG, "Failed to parse PJPG dimensions");
+    if (!is_qoi_data(decoded_data, decoded_size)) {
+        ESP_LOGE(TAG, "Decoded data is not QOI");
         free_image_buffer(decoded_data);
         return false;
     }
 
-    uint32_t alpha_size = 0;
-    if (!get_pjpg_alpha_size(decoded_data, decoded_size, &alpha_size)) {
-        ESP_LOGE(TAG, "Failed to parse PJPG alpha size");
-        free_image_buffer(decoded_data);
-        return false;
-    }
-    if (alpha_size != 0) {
-        ESP_LOGE(TAG, "Pjpg alpha channel is not supported (alpha size: %u)", alpha_size);
+    if (!get_qoi_dimensions(decoded_data, decoded_size, &img_w, &img_h)) {
+        ESP_LOGE(TAG, "Failed to parse QOI dimensions");
         free_image_buffer(decoded_data);
         return false;
     }

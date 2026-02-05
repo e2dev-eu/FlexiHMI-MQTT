@@ -9,7 +9,7 @@
 /**
  * @brief Image widget - displays images from SD card or base64-encoded data
  *
- * Runtime format: PJPG only (hardware-accelerated via esp_lv_decoder)
+ * Runtime format: QOI only (software decode via LVGL)
  * Can update image source via MQTT (file path or base64 data)
  */
 class ImageWidget : public HMIWidget {
