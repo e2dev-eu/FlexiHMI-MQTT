@@ -277,6 +277,10 @@ void SettingsUI::destroySettingsScreen() {
         m_password_input = nullptr;
         m_client_id_input = nullptr;
         m_config_topic_input = nullptr;
+        m_mqtt_status_label = nullptr;
+        m_mqtt_broker_label = nullptr;
+        m_mqtt_messages_received_label = nullptr;
+        m_mqtt_messages_sent_label = nullptr;
         m_lan_dhcp_switch = nullptr;
         m_lan_ip_input = nullptr;
         m_lan_netmask_input = nullptr;
@@ -293,95 +297,189 @@ void SettingsUI::destroySettingsScreen() {
 }
 
 void SettingsUI::createMqttTab(lv_obj_t* tab) {
-    int y_pos = 20;
     int field_height = 40;
-    int field_spacing = 60;
+    int input_width = 280;
+    
+    // === LEFT CONTAINER (Configuration) ===
+    lv_obj_t* left_container = lv_obj_create(tab);
+    lv_obj_set_size(left_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(left_container, 10, 10);
+    lv_obj_set_style_bg_color(left_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(left_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(left_container, 1, 0);
+    lv_obj_set_style_pad_all(left_container, 15, 0);
+    lv_obj_set_scrollbar_mode(left_container, LV_SCROLLBAR_MODE_AUTO);
+    
+    int y_pos = 10;
+    
+    // Configuration header
+    lv_obj_t* config_header = lv_label_create(left_container);
+    lv_label_set_text(config_header, "MQTT Configuration");
+    lv_obj_set_pos(config_header, 0, y_pos);
+    lv_obj_set_style_text_font(config_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(config_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 35;
     
     // Broker URI
-    lv_obj_t* broker_label = lv_label_create(tab);
+    lv_obj_t* broker_label = lv_label_create(left_container);
     lv_label_set_text(broker_label, "Broker URI:");
-    lv_obj_set_pos(broker_label, 20, y_pos);
+    lv_obj_set_pos(broker_label, 0, y_pos);
     
-    m_broker_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_broker_input, LV_PCT(65), field_height);
-    lv_obj_set_pos(m_broker_input, LV_PCT(35), y_pos);
+    y_pos += 22;
+    
+    m_broker_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_broker_input, input_width, field_height);
+    lv_obj_set_pos(m_broker_input, 0, y_pos);
     lv_textarea_set_one_line(m_broker_input, true);
     lv_textarea_set_text(m_broker_input, m_broker_uri.c_str());
     lv_obj_add_event_cb(m_broker_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_broker_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += field_spacing;
+    y_pos += field_height + 15;
     
     // Username
-    lv_obj_t* username_label = lv_label_create(tab);
+    lv_obj_t* username_label = lv_label_create(left_container);
     lv_label_set_text(username_label, "Username:");
-    lv_obj_set_pos(username_label, 20, y_pos);
+    lv_obj_set_pos(username_label, 0, y_pos);
     
-    m_username_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_username_input, LV_PCT(65), field_height);
-    lv_obj_set_pos(m_username_input, LV_PCT(35), y_pos);
+    y_pos += 22;
+    
+    m_username_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_username_input, input_width, field_height);
+    lv_obj_set_pos(m_username_input, 0, y_pos);
     lv_textarea_set_one_line(m_username_input, true);
     lv_textarea_set_text(m_username_input, m_username.c_str());
     lv_obj_add_event_cb(m_username_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_username_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += field_spacing;
+    y_pos += field_height + 15;
     
     // Password
-    lv_obj_t* password_label = lv_label_create(tab);
+    lv_obj_t* password_label = lv_label_create(left_container);
     lv_label_set_text(password_label, "Password:");
-    lv_obj_set_pos(password_label, 20, y_pos);
+    lv_obj_set_pos(password_label, 0, y_pos);
     
-    m_password_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_password_input, LV_PCT(65), field_height);
-    lv_obj_set_pos(m_password_input, LV_PCT(35), y_pos);
+    y_pos += 22;
+    
+    m_password_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_password_input, input_width, field_height);
+    lv_obj_set_pos(m_password_input, 0, y_pos);
     lv_textarea_set_one_line(m_password_input, true);
     lv_textarea_set_password_mode(m_password_input, true);
     lv_textarea_set_text(m_password_input, m_password.c_str());
     lv_obj_add_event_cb(m_password_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_password_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += field_spacing;
+    y_pos += field_height + 15;
     
     // Client ID
-    lv_obj_t* client_id_label = lv_label_create(tab);
+    lv_obj_t* client_id_label = lv_label_create(left_container);
     lv_label_set_text(client_id_label, "Client ID:");
-    lv_obj_set_pos(client_id_label, 20, y_pos);
+    lv_obj_set_pos(client_id_label, 0, y_pos);
     
-    m_client_id_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_client_id_input, LV_PCT(65), field_height);
-    lv_obj_set_pos(m_client_id_input, LV_PCT(35), y_pos);
+    y_pos += 22;
+    
+    m_client_id_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_client_id_input, input_width, field_height);
+    lv_obj_set_pos(m_client_id_input, 0, y_pos);
     lv_textarea_set_one_line(m_client_id_input, true);
     lv_textarea_set_text(m_client_id_input, m_client_id.c_str());
     lv_obj_add_event_cb(m_client_id_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_client_id_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += field_spacing;
+    y_pos += field_height + 15;
     
     // Config Topic
-    lv_obj_t* topic_label = lv_label_create(tab);
+    lv_obj_t* topic_label = lv_label_create(left_container);
     lv_label_set_text(topic_label, "Config Topic:");
-    lv_obj_set_pos(topic_label, 20, y_pos);
+    lv_obj_set_pos(topic_label, 0, y_pos);
     
-    m_config_topic_input = lv_textarea_create(tab);
-    lv_obj_set_size(m_config_topic_input, LV_PCT(65), field_height);
-    lv_obj_set_pos(m_config_topic_input, LV_PCT(35), y_pos);
+    y_pos += 22;
+    
+    m_config_topic_input = lv_textarea_create(left_container);
+    lv_obj_set_size(m_config_topic_input, input_width, field_height);
+    lv_obj_set_pos(m_config_topic_input, 0, y_pos);
     lv_textarea_set_one_line(m_config_topic_input, true);
     lv_textarea_set_text(m_config_topic_input, m_config_topic.c_str());
     lv_obj_add_event_cb(m_config_topic_input, textarea_focused_cb, LV_EVENT_FOCUSED, this);
     lv_obj_add_event_cb(m_config_topic_input, textarea_defocused_cb, LV_EVENT_DEFOCUSED, this);
     
-    y_pos += field_spacing + 20;
+    y_pos += field_height + 25;
     
-    // Save button
-    lv_obj_t* save_btn = lv_button_create(tab);
-    lv_obj_set_size(save_btn, 150, 50);
-    lv_obj_set_pos(save_btn, 20, y_pos);
+    // Save & Apply button
+    lv_obj_t* save_btn = lv_button_create(left_container);
+    lv_obj_set_size(save_btn, input_width, 45);
+    lv_obj_set_pos(save_btn, 0, y_pos);
     lv_obj_add_event_cb(save_btn, mqtt_save_clicked_cb, LV_EVENT_CLICKED, this);
     
     lv_obj_t* save_label = lv_label_create(save_btn);
     lv_label_set_text(save_label, "Save & Apply");
     lv_obj_center(save_label);
+    
+    // === RIGHT CONTAINER (Status) ===
+    lv_obj_t* right_container = lv_obj_create(tab);
+    lv_obj_set_size(right_container, LV_PCT(48), LV_PCT(95));
+    lv_obj_set_pos(right_container, LV_PCT(52), 10);
+    lv_obj_set_style_bg_color(right_container, lv_color_hex(0x2a2a2a), 0);
+    lv_obj_set_style_border_color(right_container, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(right_container, 1, 0);
+    lv_obj_set_style_pad_all(right_container, 15, 0);
+    lv_obj_clear_flag(right_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    y_pos = 10;
+    
+    // Status header
+    lv_obj_t* status_header = lv_label_create(right_container);
+    lv_label_set_text(status_header, "Current Status");
+    lv_obj_set_pos(status_header, 0, y_pos);
+    lv_obj_set_style_text_font(status_header, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(status_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 40;
+    
+    // Connection status
+    m_mqtt_status_label = lv_label_create(right_container);
+    lv_label_set_text(m_mqtt_status_label, "Status: Disconnected");
+    lv_obj_set_pos(m_mqtt_status_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_mqtt_status_label, lv_color_hex(0xFF6666), 0);
+    
+    y_pos += 30;
+    
+    // Broker
+    m_mqtt_broker_label = lv_label_create(right_container);
+    lv_label_set_text(m_mqtt_broker_label, "Broker: ---");
+    lv_obj_set_pos(m_mqtt_broker_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_mqtt_broker_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 40;
+    
+    // Statistics header
+    lv_obj_t* stats_header = lv_label_create(right_container);
+    lv_label_set_text(stats_header, "Statistics");
+    lv_obj_set_pos(stats_header, 0, y_pos);
+    lv_obj_set_style_text_font(stats_header, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(stats_header, lv_color_hex(0x00BFFF), 0);
+    
+    y_pos += 30;
+    
+    // Messages received
+    m_mqtt_messages_received_label = lv_label_create(right_container);
+    lv_label_set_text(m_mqtt_messages_received_label, "Received: 0");
+    lv_obj_set_pos(m_mqtt_messages_received_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_mqtt_messages_received_label, lv_color_hex(0xCCCCCC), 0);
+    
+    y_pos += 25;
+    
+    // Messages sent
+    m_mqtt_messages_sent_label = lv_label_create(right_container);
+    lv_label_set_text(m_mqtt_messages_sent_label, "Sent: 0");
+    lv_obj_set_pos(m_mqtt_messages_sent_label, 0, y_pos);
+    lv_obj_set_style_text_color(m_mqtt_messages_sent_label, lv_color_hex(0xCCCCCC), 0);
+    
+    // Update status from MQTTManager
+    MQTTManager& mqtt = MQTTManager::getInstance();
+    onMqttStatusChanged(mqtt.isConnected(), mqtt.getMessagesReceived(), mqtt.getMessagesSent());
     
     ESP_LOGI(TAG, "MQTT tab created");
 }
@@ -1743,4 +1841,44 @@ void SettingsUI::onWifiStatusChanged(const std::string& status, const std::strin
     
     // Signal and channel would need additional data from WirelessManager
     // For now, these remain as placeholders
+}
+
+void SettingsUI::onMqttStatusChanged(bool connected, uint32_t messages_received, uint32_t messages_sent) {
+    if (!m_mqtt_status_label) return;
+    
+    // Update connection status with appropriate color
+    if (connected) {
+        lv_label_set_text(m_mqtt_status_label, "Status: Connected");
+        lv_obj_set_style_text_color(m_mqtt_status_label, lv_color_hex(0x00FF00), 0);
+    } else {
+        lv_label_set_text(m_mqtt_status_label, "Status: Disconnected");
+        lv_obj_set_style_text_color(m_mqtt_status_label, lv_color_hex(0xFF6666), 0);
+    }
+    
+    // Update broker display
+    if (m_mqtt_broker_label) {
+        if (connected && !m_broker_uri.empty()) {
+            std::string broker_text = "Broker: " + m_broker_uri;
+            // Truncate if too long
+            if (broker_text.length() > 40) {
+                broker_text = broker_text.substr(0, 37) + "...";
+            }
+            lv_label_set_text(m_mqtt_broker_label, broker_text.c_str());
+        } else {
+            lv_label_set_text(m_mqtt_broker_label, "Broker: ---");
+        }
+    }
+    
+    // Update statistics
+    if (m_mqtt_messages_received_label) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Received: %lu", (unsigned long)messages_received);
+        lv_label_set_text(m_mqtt_messages_received_label, buf);
+    }
+    
+    if (m_mqtt_messages_sent_label) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Sent: %lu", (unsigned long)messages_sent);
+        lv_label_set_text(m_mqtt_messages_sent_label, buf);
+    }
 }

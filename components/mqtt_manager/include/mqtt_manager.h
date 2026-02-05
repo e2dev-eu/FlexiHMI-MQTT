@@ -10,6 +10,7 @@
 class MQTTManager {
 public:
     using MessageCallback = std::function<void(const std::string& topic, const std::string& payload)>;
+    using StatusCallback = std::function<void(bool connected, uint32_t messages_received, uint32_t messages_sent)>;
     using SubscriptionHandle = uint32_t;  // Unique handle for each subscription
     
     static MQTTManager& getInstance();
@@ -39,6 +40,14 @@ public:
     // Check connection status
     bool isConnected() const { return m_connected; }
     
+    // Get statistics
+    uint32_t getMessagesReceived() const { return m_messages_received; }
+    uint32_t getMessagesSent() const { return m_messages_sent; }
+    void resetStatistics() { m_messages_received = 0; m_messages_sent = 0; }
+    
+    // Register status change callback
+    void setStatusCallback(StatusCallback callback) { m_status_callback = callback; }
+    
 private:
     MQTTManager();
     ~MQTTManager();
@@ -64,4 +73,9 @@ private:
     std::map<std::string, int> m_qos_map; // Store QoS for each topic
     std::string m_chunk_buffer; // Buffer for accumulating chunked messages
     SubscriptionHandle m_next_handle = 1;  // Auto-increment handle
+    
+    // Statistics
+    uint32_t m_messages_received;
+    uint32_t m_messages_sent;
+    StatusCallback m_status_callback;
 };

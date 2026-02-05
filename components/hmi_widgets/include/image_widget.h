@@ -4,11 +4,12 @@
 #include "hmi_widget.h"
 #include "cJSON.h"
 #include <string>
+#include <vector>
 
 /**
  * @brief Image widget - displays images from SD card or base64-encoded data
- * 
- * Supports JPEG, PNG, BMP formats
+ *
+ * Runtime format: PJPG only (hardware-accelerated via esp_lv_decoder)
  * Can update image source via MQTT (file path or base64 data)
  */
 class ImageWidget : public HMIWidget {
@@ -28,6 +29,14 @@ private:
     bool loadImageFromPath(const std::string& path);
     bool loadImageFromBase64(const std::string& base64_data);
     bool isBase64Data(const std::string& data);
+
+    struct PendingFree {
+        lv_image_dsc_t* dsc = nullptr;
+        uint8_t* data = nullptr;
+    };
+
+    static void free_timer_cb(lv_timer_t* timer);
+    void schedule_free(lv_image_dsc_t* dsc, uint8_t* data);
     
     std::string m_image_path;
     std::string m_mqtt_topic;
@@ -35,6 +44,8 @@ private:
     lv_image_dsc_t* m_img_dsc = nullptr;
     uint8_t* m_decoded_data = nullptr;  // For base64 decoded images
     size_t m_decoded_size = 0;
+    std::vector<PendingFree> m_pending_free;
+    lv_timer_t* m_free_timer = nullptr;
 };
 
 #endif // IMAGE_WIDGET_H

@@ -153,18 +153,18 @@ mosquitto_pub -h broker -t "demo/image1" -f image.base64.txt
 
 ### Image Widget
 
-Load images from SD card or receive base64-encoded images via MQTT:
+Load images from SD card or receive base64-encoded images via MQTT (PJPG only):
 
 ```bash
-# SD card image
-mosquitto_pub -t "demo/image" -m "/sdcard/logo.png"
+# SD card image (PJPG)
+mosquitto_pub -t "demo/image" -m "/sdcard/logo.pjpg"
 
-# Base64 image
-python3 examples/encode_image_to_base64.py photo.jpg
-mosquitto_pub -t "demo/image" -f photo.jpg.base64.txt
+# Base64 image (PJPG)
+python3 examples/images/convert_to_pjpg.py photo.png photo.pjpg
+mosquitto_pub -t "demo/image" -f photo.pjpg.base64.txt
 ```
 
-Supports JPEG (hardware accelerated), PNG, BMP, and GIF. See [examples/docs/IMAGE_WIDGET_README.md](examples/docs/IMAGE_WIDGET_README.md).
+Runtime supports PJPG only (hardware accelerated). See [examples/docs/IMAGE_WIDGET_README.md](examples/docs/IMAGE_WIDGET_README.md).
 
 ### Hardware Acceleration
 
@@ -211,7 +211,7 @@ See [examples/json/README.md](examples/json/README.md) for detailed descriptions
 | `demo/speed` | Update gauge values | `"120"` |
 | `demo/power` | Switch states | `"true"` / `"false"` |
 | `demo/volume` | Slider positions | `"75"` |
-| `demo/image1` | Image data | `/sdcard/pic.jpg` or base64 |
+| `demo/image1` | Image data | `/sdcard/pic.pjpg` or base64 |
 | `demo/command` | Button commands | `"START"` |
 | `demo/mode` | Dropdown selections | `"Auto"` |
 

@@ -35,7 +35,7 @@
       "w": 256,
       "h": 256,
       "properties": {
-        "image_path": "/sdcard/lenna256.png",
+        "image_path": "/sdcard/lenna256.pjpg",
         "mqtt_topic": "demo/image_sdcard"
       }
     },
@@ -98,7 +98,7 @@
       "properties": {
         "text": "Lena",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/lenna256.png"
+        "mqtt_payload": "/sdcard/lenna256.pjpg"
       }
     },
     {
@@ -111,7 +111,7 @@
       "properties": {
         "text": "Logo",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/logo.png"
+        "mqtt_payload": "/sdcard/logo.pjpg"
       }
     },
     {
@@ -124,7 +124,7 @@
       "properties": {
         "text": "IoT",
         "mqtt_topic": "demo/image_sdcard",
-        "mqtt_payload": "/sdcard/iot.png"
+        "mqtt_payload": "/sdcard/iot.pjpg"
       }
     },
     {
@@ -135,7 +135,7 @@
       "w": 556,
       "h": 60,
       "properties": {
-        "text": "To send Base64 image:\n1. Encode: python3 encode_image_to_base64.py image.jpg\n2. Send: mosquitto_pub -t demo/image_base64 -m '<base64_data>'",
+        "text": "To send Base64 image:\n1. Encode: python3 convert_to_pjpg.py image.png image.pjpg\n2. Send: mosquitto_pub -t demo/image_base64 -f image.pjpg.base64.txt",
         "color": "#888888"
       }
     }

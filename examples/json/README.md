@@ -125,7 +125,8 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f complete_demo.json
 
 #### Method 1: Using Base64 in Initial Configuration
 
-**Step 1:** Encode your image to base64
+# Convert to PJPG format
+python3 ../images/convert_to_pjpg.py images/iot.png images/iot.pjpg
 ```bash
 cd examples
 python3 encode_image_to_base64.py images/iot.png
@@ -162,14 +163,15 @@ mosquitto_pub -h 192.168.100.200 -t "hmi/config" -f your_config.json
 
 #### Method 2: Sending Base64 via MQTT (Dynamic Updates)
 
-**Step 1:** Encode your image
+# Convert to PJPG format
+python3 ../images/convert_to_pjpg.py images/logo.png images/logo.pjpg
 ```bash
 cd examples
 python3 encode_image_to_base64.py images/logo.png
 # Creates images/logo.png.base64.txt
 ```
 
-**Step 2:** Send base64 data via MQTT (replaces existing image)
+BASE64_DATA=$(cat images/logo.pjpg.base64.txt)
 ```bash
 # Load base64 data into variable
 BASE64_DATA=$(cat images/logo.png.base64.txt)
@@ -178,14 +180,14 @@ BASE64_DATA=$(cat images/logo.png.base64.txt)
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_DATA"
 ```
 
-**Step 3:** Switch between different images dynamically
+BASE64_IOT=$(cat images/iot.pjpg.base64.txt)
 ```bash
 # Display IoT icon
 BASE64_IOT=$(cat images/iot.png.base64.txt)
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_IOT"
 
 # Display Lena image
-mosquitto_pub -h 192.168.100.200 -t "demo/image_sdcard" -m "/sdcard/lenna256.png"
+BASE64_LOGO=$(cat images/logo.pjpg.base64.txt)
 
 # Display Logo
 BASE64_LOGO=$(cat images/logo.png.base64.txt)
@@ -198,7 +200,7 @@ mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_LOGO"
 ```bash
 #!/bin/bash
 cd examples/images
-
+  python3 ../images/convert_to_pjpg.py "$img" "${img%.png}.pjpg"
 for img in *.png *.jpg; do
   echo "Encoding $img..."
   python3 ../encode_image_to_base64.py "$img"
@@ -211,13 +213,13 @@ ls -lh *.base64.txt
 **Send multiple images to different widgets:**
 ```bash
 # Define your MQTT broker
-BROKER="192.168.100.200"
+BASE64_IOT=$(cat examples/images/iot.pjpg.base64.txt)
 
 # Send to image widget on demo tab (image_example.json)
 BASE64_IOT=$(cat examples/images/iot.png.base64.txt)
-mosquitto_pub -h $BROKER -t "demo/image_base64" -m "$BASE64_IOT"
-
-# Send to image widgets on interactive demo (different topics)
+mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lenna256.pjpg"
+mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/logo.pjpg"
+mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.pjpg"
 mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lenna256.png"
 mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/logo.png"
 mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.png"

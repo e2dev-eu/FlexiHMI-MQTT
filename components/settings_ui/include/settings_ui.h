@@ -46,6 +46,7 @@ public:
     // Network manager callbacks
     void onLanStatusChanged(const std::string& status, const std::string& ip, const std::string& netmask, const std::string& gateway);
     void onWifiStatusChanged(const std::string& status, const std::string& ssid, const std::string& ip, const std::string& netmask, const std::string& gateway);
+    void onMqttStatusChanged(bool connected, uint32_t messages_received, uint32_t messages_sent);
     
     // Getters for settings
     const std::string& getBrokerUri() const { return m_broker_uri; }
@@ -112,6 +113,10 @@ private:
     lv_obj_t* m_password_input;
     lv_obj_t* m_client_id_input;
     lv_obj_t* m_config_topic_input;
+    lv_obj_t* m_mqtt_status_label;
+    lv_obj_t* m_mqtt_broker_label;
+    lv_obj_t* m_mqtt_messages_received_label;
+    lv_obj_t* m_mqtt_messages_sent_label;
     
     // LAN tab objects
     lv_obj_t* m_lan_dhcp_switch;

@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "lvgl.h"
+#include "esp_lv_decoder.h"
 #include "bsp/esp-bsp.h"
 #include "bsp/display.h"
 #include "mqtt_manager.h"
@@ -38,6 +39,11 @@ static void mqtt_task(void *pvParameters)
 
     // Initialize MQTT with loaded settings
     MQTTManager &mqtt = MQTTManager::getInstance();
+
+    // Register status callback to update SettingsUI
+    mqtt.setStatusCallback([](bool connected, uint32_t messages_received, uint32_t messages_sent)
+                           { SettingsUI::getInstance().onMqttStatusChanged(connected, messages_received, messages_sent); });
+
     if (!settings.getUsername().empty())
     {
         ESP_LOGI(TAG, "Connecting to MQTT with authentication");
@@ -195,23 +201,35 @@ extern "C" void app_main_cpp(void)
 {
     ESP_LOGI(TAG, "Initializing...");
 
+    static esp_lv_decoder_handle_t s_decoder_handle = NULL;
+    esp_err_t decoder_ret = esp_lv_decoder_init(&s_decoder_handle);
+    if(decoder_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init esp_lv_decoder: %s", esp_err_to_name(decoder_ret));
+    } else {
+        ESP_LOGI(TAG, "esp_lv_decoder initialized");
+    }
+
     // Initialize base UI first (gear icon + placeholder) - shows immediately
     init_base_ui();
 
     // Initialize SD card for image storage
     ESP_LOGI(TAG, "Mounting SD card...");
     esp_err_t ret = bsp_sdcard_mount();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK)
+    {
         ESP_LOGE(TAG, "Failed to mount SD card: %s", esp_err_to_name(ret));
         ESP_LOGE(TAG, "Image widget will not work without SD card");
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "SD card mounted successfully at %s", BSP_SD_MOUNT_POINT);
-        
+
         // Print SD card information
         sdmmc_card_t *sdcard = bsp_sdcard_get_handle();
-        if (sdcard != NULL) {
-            ESP_LOGI(TAG, "SD Card: %s, Size: %llu MB", 
-                     sdcard->cid.name, 
+        if (sdcard != NULL)
+        {
+            ESP_LOGI(TAG, "SD Card: %s, Size: %llu MB",
+                     sdcard->cid.name,
                      ((uint64_t)sdcard->csd.capacity) * sdcard->csd.sector_size / (1024 * 1024));
         }
     }

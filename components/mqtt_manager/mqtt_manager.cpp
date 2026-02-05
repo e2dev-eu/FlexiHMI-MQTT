@@ -228,8 +228,11 @@ bool MQTTManager::publish(const std::string& topic, const std::string& payload, 
         ESP_LOGE(TAG, "Failed to publish to %s", topic.c_str());
         return false;
     }
-    
-    ESP_LOGD(TAG, "Published to %s: %s (msg_id=%d)", topic.c_str(), payload.c_str(), msg_id);
+        m_messages_sent++;
+    if (m_status_callback) {
+        m_status_callback(m_connected, m_messages_received, m_messages_sent);
+    }
+        ESP_LOGD(TAG, "Published to %s: %s (msg_id=%d)", topic.c_str(), payload.c_str(), msg_id);
     return true;
 }
 
@@ -260,6 +263,11 @@ void MQTTManager::handleConnected() {
     ESP_LOGI(TAG, "MQTT connected");
     m_connected = true;
     
+    // Notify status callback
+    if (m_status_callback) {
+        m_status_callback(m_connected, m_messages_received, m_messages_sent);
+    }
+    
     // Resubscribe to all topics
     for (const auto& sub : m_subscribers) {
         const std::string& topic = sub.first;
@@ -272,6 +280,11 @@ void MQTTManager::handleConnected() {
 void MQTTManager::handleDisconnected() {
     ESP_LOGW(TAG, "MQTT disconnected");
     m_connected = false;
+    
+    // Notify status callback
+    if (m_status_callback) {
+        m_status_callback(m_connected, m_messages_received, m_messages_sent);
+    }
 }
 
 void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
@@ -296,6 +309,11 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         if (m_chunk_buffer.size() >= static_cast<size_t>(event->total_data_len)) {
             ESP_LOGI(TAG, "Complete message received on %s: %d bytes", topic.c_str(), m_chunk_buffer.size());
             
+            m_messages_received++;
+            if (m_status_callback) {
+                m_status_callback(m_connected, m_messages_received, m_messages_sent);
+            }
+            
             // Find matching subscribers and deliver complete message to all
             auto it = m_subscribers.find(topic);
             if (it != m_subscribers.end()) {
@@ -310,6 +328,11 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         // Single chunk message
         std::string payload(event->data, event->data_len);
         ESP_LOGD(TAG, "Received on %s: %d bytes", topic.c_str(), payload.size());
+        
+        m_messages_received++;
+        if (m_status_callback) {
+            m_status_callback(m_connected, m_messages_received, m_messages_sent);
+        }
         
         // Find matching subscribers and invoke all callbacks
         auto it = m_subscribers.find(topic);

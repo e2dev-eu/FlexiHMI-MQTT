@@ -640,40 +640,40 @@ mosquitto_pub -h localhost -t "battery/level" -m "85"
   "w": 300,
   "h": 300,
   "properties": {
-    "image_path": "/sdcard/images/product.jpg",
+    "image_path": "/sdcard/images/product.pjpg",
     "mqtt_topic": "display/product_image"
   }
 }
 ```
 
 **Properties:**
-- `image_path` (string): Initial image - SD card path OR base64-encoded image data (e.g., "/sdcard/images/logo.jpg" or base64 string)
+- `image_path` (string): Initial image - SD card PJPG path OR base64-encoded PJPG data (e.g., "/sdcard/images/logo.pjpg" or base64 string)
 - `mqtt_topic` (string, optional): Topic to subscribe for image updates (supports both path and base64)
 
 **MQTT Behavior:**
 - **Subscribes to:** `mqtt_topic`
 - **Expected payload formats:**
-  - **SD card path:** `"/sdcard/images/photo.png"` (string with path)
+  - **SD card path:** `"/sdcard/images/photo.pjpg"` (string with path)
   - **Base64 data:** Raw base64-encoded image string (auto-detected, >100 chars)
 - **Behavior:** Automatically detects format and loads image accordingly
-- **Supported formats:** JPEG (.jpg, .jpeg), PNG (.png), BMP (.bmp), GIF (.gif)
+- **Supported formats:** PJPG only (hardware accelerated)
 - **Detection:** Payloads >100 chars with 95%+ base64 characters treated as base64 data
 
 **Usage Example:**
 ```bash
 # Change displayed image using SD card path
-mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.jpg"
+mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.pjpg"
 
 # Show logo
-mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.png"
+mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.pjpg"
 
 # Send base64-encoded image (small example, actual images are larger)
-# Use examples/encode_image_to_base64.py to encode images
-BASE64_DATA=$(cat image.jpg.base64.txt)
+# Use examples/images/convert_to_pjpg.py to encode images
+BASE64_DATA=$(cat image.pjpg.base64.txt)
 mosquitto_pub -h localhost -t "display/dynamic_image" -m "$BASE64_DATA"
 
-# Send base64 directly (PNG example)
-mosquitto_pub -h localhost -t "gallery/current" -m "iVBORw0KGgoAAAANSUhEUgAA..."
+# Send base64 directly (PJPG example)
+mosquitto_pub -h localhost -t "gallery/current" -m "X1BKUEdfXw..."
 ```
 
 **SD Card Setup:**
@@ -683,7 +683,7 @@ mosquitto_pub -h localhost -t "gallery/current" -m "iVBORw0KGgoAAAANSUhEUgAA..."
 - Supported image sizes limited by available RAM
 
 **Base64 Usage:**
-- Use `examples/encode_image_to_base64.py` to convert images
+- Use `examples/images/convert_to_pjpg.py` to convert images
 - Outputs `.base64.txt` files ready for MQTT transmission
 - No data URI prefix needed (raw base64 string)
 - Useful for dynamic image updates without SD card writes

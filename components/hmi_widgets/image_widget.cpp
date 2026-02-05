@@ -2,11 +2,138 @@
 #include "mqtt_manager.h"
 #include <esp_log.h>
 #include <cstring>
+#include <cstdint>
+#include <esp_heap_caps.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "mbedtls/base64.h"
 
 static const char *TAG = "ImageWidget";
+
+static uint8_t* alloc_image_buffer(size_t size) {
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    if (!buf) {
+        buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_8BIT);
+    }
+    if (!buf) {
+        buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    return buf;
+}
+
+static void free_image_buffer(void* buf) {
+    if (buf) {
+        heap_caps_free(buf);
+    }
+}
+
+void ImageWidget::free_timer_cb(lv_timer_t* timer) {
+    ImageWidget* widget = static_cast<ImageWidget*>(lv_timer_get_user_data(timer));
+    if (!widget) {
+        return;
+    }
+
+    for (const auto& pending : widget->m_pending_free) {
+        if (pending.dsc) {
+            lv_image_cache_drop(pending.dsc);
+            free(pending.dsc);
+        }
+        if (pending.data) {
+            free_image_buffer(pending.data);
+        }
+    }
+    widget->m_pending_free.clear();
+
+    if (widget->m_free_timer) {
+        lv_timer_del(widget->m_free_timer);
+        widget->m_free_timer = nullptr;
+    }
+}
+
+void ImageWidget::schedule_free(lv_image_dsc_t* dsc, uint8_t* data) {
+    if (!dsc && !data) {
+        return;
+    }
+
+    m_pending_free.push_back({dsc, data});
+
+    if (!m_free_timer) {
+        m_free_timer = lv_timer_create(free_timer_cb, 300, this);
+    }
+}
+
+static uint16_t read_le16(const uint8_t* data) {
+    return static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
+}
+
+static uint32_t read_le32(const uint8_t* data) {
+    return static_cast<uint32_t>(data[0] |
+        (static_cast<uint32_t>(data[1]) << 8) |
+        (static_cast<uint32_t>(data[2]) << 16) |
+        (static_cast<uint32_t>(data[3]) << 24));
+}
+
+static bool is_pjpg_data(const uint8_t* data, size_t size) {
+    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
+    if (!data || size < 22) {
+        return false;
+    }
+    if (memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
+        return false;
+    }
+    return true;
+}
+
+static bool is_pjpg_base64_prefix(const std::string& base64_data) {
+    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
+    if (base64_data.size() < 12) {
+        return false;
+    }
+
+    size_t prefix_len = base64_data.size() < 24 ? base64_data.size() : 24;
+    prefix_len = (prefix_len / 4) * 4;
+    if (prefix_len < 8) {
+        return false;
+    }
+
+    uint8_t decoded[32] = {0};
+    size_t decoded_len = 0;
+    int ret = mbedtls_base64_decode(decoded, sizeof(decoded), &decoded_len,
+                                    (const unsigned char*)base64_data.data(),
+                                    prefix_len);
+    if (ret != 0 || decoded_len < sizeof(pjpg_magic)) {
+        return false;
+    }
+
+    return memcmp(decoded, pjpg_magic, sizeof(pjpg_magic)) == 0;
+}
+
+static bool get_pjpg_dimensions(const uint8_t* data, size_t size, uint16_t* out_w, uint16_t* out_h) {
+    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
+    if (!data || size < 22 || memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
+        return false;
+    }
+    const uint8_t* p = data + 8; // magic(7) + version(1)
+    uint16_t w = read_le16(p);
+    uint16_t h = read_le16(p + 2);
+    if (w == 0 || h == 0) {
+        return false;
+    }
+    *out_w = w;
+    *out_h = h;
+    return true;
+}
+
+static bool get_pjpg_alpha_size(const uint8_t* data, size_t size, uint32_t* out_alpha_size) {
+    const uint8_t pjpg_magic[7] = {'_', 'P', 'J', 'P', 'G', '_', '_'};
+    if (!data || size < 22 || memcmp(data, pjpg_magic, sizeof(pjpg_magic)) != 0) {
+        return false;
+    }
+    const uint8_t* p = data + 8; // magic(7) + version(1)
+    uint32_t alpha_size = read_le32(p + 8); // width(2) + height(2) + rgb_size(4)
+    *out_alpha_size = alpha_size;
+    return true;
+}
 
 bool ImageWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
@@ -98,9 +225,28 @@ void ImageWidget::destroy() {
     
     // Free base64 decoded data (only once!)
     if (m_decoded_data) {
-        free(m_decoded_data);
+        free_image_buffer(m_decoded_data);
         m_decoded_data = nullptr;
         m_decoded_size = 0;
+    }
+
+    // Free any pending buffers
+    if (!m_pending_free.empty()) {
+        for (const auto& pending : m_pending_free) {
+            if (pending.dsc) {
+                lv_image_cache_drop(pending.dsc);
+                free(pending.dsc);
+            }
+            if (pending.data) {
+                free_image_buffer(pending.data);
+            }
+        }
+        m_pending_free.clear();
+    }
+
+    if (m_free_timer) {
+        lv_timer_del(m_free_timer);
+        m_free_timer = nullptr;
     }
     
     // Free image descriptor (but not the data - already freed above)
@@ -191,18 +337,17 @@ bool ImageWidget::loadImageFromPath(const std::string& path) {
         return false;
     }
     
-    // Check file extension for supported formats
+    // Check file extension for supported format (PJPG only)
     const char* ext = strrchr(path.c_str(), '.');
     if (ext) {
         ESP_LOGI(TAG, "File extension: %s", ext);
-        if (strcasecmp(ext, ".jpg") != 0 && 
-            strcasecmp(ext, ".jpeg") != 0 && 
-            strcasecmp(ext, ".png") != 0 && 
-            strcasecmp(ext, ".bmp") != 0) {
-            ESP_LOGW(TAG, "Unsupported file extension: %s (supported: jpg, jpeg, png, bmp)", ext);
+        if (strcasecmp(ext, ".pjpg") != 0) {
+            ESP_LOGE(TAG, "Unsupported file extension: %s (supported: pjpg)", ext);
+            return false;
         }
     } else {
-        ESP_LOGW(TAG, "No file extension found in path: %s", path.c_str());
+        ESP_LOGE(TAG, "No file extension found in path: %s", path.c_str());
+        return false;
     }
     
     // For SD card paths, LVGL can load directly using filesystem
@@ -248,43 +393,28 @@ bool ImageWidget::loadImageFromPath(const std::string& path) {
         ESP_LOGW(TAG, "Image source is NULL");
     }
     
-    // Note: LVGL will handle image decoding (JPEG, PNG, BMP)
-    // The ESP32-P4 has hardware JPEG decoder which LVGL can utilize
+    // Note: LVGL will handle image decoding (PJPG only)
+    // PJPG uses the ESP32-P4 hardware JPEG decoder via esp_lvgl_adapter
     
     ESP_LOGI(TAG, "Successfully loaded image from: %s", path.c_str());
     return true;
 }
 
 bool ImageWidget::isBase64Data(const std::string& data) {
-    // Base64 strings are typically much longer than file paths
-    // and contain only base64 characters: A-Z, a-z, 0-9, +, /, =
-    if (data.size() < 100) {
-        return false;  // Too short to be a meaningful base64 image
+    if(data.empty() || data.rfind("/sdcard/", 0) == 0 || data.rfind("S:/", 0) == 0) {
+        return false; // Looks like a file path
     }
-    
-    // Check if it starts with a path indicator
-    if (data[0] == '/' || data.find(":/") != std::string::npos) {
-        return false;  // Looks like a file path
-    }
-    
-    // Check if most characters are base64 characters
-    int base64_chars = 0;
-    int sample_size = std::min((int)data.size(), 200);  // Check first 200 chars
-    
-    for (int i = 0; i < sample_size; i++) {
-        char c = data[i];
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
-            (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
-            base64_chars++;
-        }
-    }
-    
-    // If more than 95% are base64 characters, assume it's base64
-    return (base64_chars * 100 / sample_size) > 95;
+
+    return true; // Assume it's base64 data if not a file path
 }
 
 bool ImageWidget::loadImageFromBase64(const std::string& base64_data) {
-    ESP_LOGI(TAG, "Decoding base64 image data (%d bytes)", base64_data.size());
+    ESP_LOGD(TAG, "Decoding base64 image data (%d bytes)", base64_data.size());
+
+    if (!is_pjpg_base64_prefix(base64_data)) {
+        ESP_LOGE(TAG, "Base64 data is not PJPG (_PJPG__ header missing)");
+        return false;
+    }
     
     // Calculate required buffer size for decoded data
     size_t decoded_len = 0;
@@ -297,79 +427,107 @@ bool ImageWidget::loadImageFromBase64(const std::string& base64_data) {
         return false;
     }
     
-    ESP_LOGI(TAG, "Base64 decode will produce %d bytes", decoded_len);
+    ESP_LOGD(TAG, "Base64 decode will produce %d bytes", decoded_len);
     
-    // Free previous decoded data if any
-    if (m_decoded_data) {
-        free(m_decoded_data);
-        m_decoded_data = nullptr;
-    }
-    
-    // Allocate buffer for decoded data
-    m_decoded_data = (uint8_t*)malloc(decoded_len);
-    if (!m_decoded_data) {
+    // Allocate buffer for decoded data (temporary until validated)
+    uint8_t* decoded_data = alloc_image_buffer(decoded_len);
+    if (!decoded_data) {
         ESP_LOGE(TAG, "Failed to allocate %d bytes for decoded image", decoded_len);
         return false;
     }
     
     // Decode base64 data
-    ret = mbedtls_base64_decode(m_decoded_data, decoded_len, &m_decoded_size,
+    size_t decoded_size = 0;
+    ret = mbedtls_base64_decode(decoded_data, decoded_len, &decoded_size,
                                  (const unsigned char*)base64_data.c_str(),
                                  base64_data.size());
     
     if (ret != 0) {
         ESP_LOGE(TAG, "Base64 decode failed: %d", ret);
-        free(m_decoded_data);
-        m_decoded_data = nullptr;
+        free_image_buffer(decoded_data);
         return false;
     }
     
-    ESP_LOGI(TAG, "Successfully decoded %d bytes of image data", m_decoded_size);
-    
-    // Free previous image descriptor if any
-    if (m_img_dsc) {
-        free(m_img_dsc);
-        m_img_dsc = nullptr;
+    ESP_LOGD(TAG, "Successfully decoded %d bytes of image data", decoded_size);
+
+    if (!is_pjpg_data(decoded_data, decoded_size)) {
+        ESP_LOGE(TAG, "Decoded data is not PJPG (_PJPG__ header missing)");
+        free_image_buffer(decoded_data);
+        return false;
+    }
+
+    uint16_t img_w = 0;
+    uint16_t img_h = 0;
+    if (!get_pjpg_dimensions(decoded_data, decoded_size, &img_w, &img_h)) {
+        ESP_LOGE(TAG, "Failed to parse PJPG dimensions");
+        free_image_buffer(decoded_data);
+        return false;
+    }
+
+    uint32_t alpha_size = 0;
+    if (!get_pjpg_alpha_size(decoded_data, decoded_size, &alpha_size)) {
+        ESP_LOGE(TAG, "Failed to parse PJPG alpha size");
+        free_image_buffer(decoded_data);
+        return false;
+    }
+    if (alpha_size != 0) {
+        ESP_LOGE(TAG, "Pjpg alpha channel is not supported (alpha size: %u)", alpha_size);
+        free_image_buffer(decoded_data);
+        return false;
     }
     
+    // Log first few bytes for debugging
+    ESP_LOGD(TAG, "Image data (first 4 bytes): %02X %02X %02X %02X", 
+             decoded_size > 0 ? decoded_data[0] : 0,
+             decoded_size > 1 ? decoded_data[1] : 0,
+             decoded_size > 2 ? decoded_data[2] : 0,
+             decoded_size > 3 ? decoded_data[3] : 0);
+
     // Allocate persistent image descriptor (must stay in memory for LVGL)
-    m_img_dsc = (lv_image_dsc_t*)malloc(sizeof(lv_image_dsc_t));
-    if (!m_img_dsc) {
+    lv_image_dsc_t* new_img_dsc = (lv_image_dsc_t*)malloc(sizeof(lv_image_dsc_t));
+    if (!new_img_dsc) {
         ESP_LOGE(TAG, "Failed to allocate image descriptor");
-        free(m_decoded_data);
-        m_decoded_data = nullptr;
+        free_image_buffer(decoded_data);
         return false;
     }
     
-    // Fill image descriptor with decoded data
-    memset(m_img_dsc, 0, sizeof(lv_image_dsc_t));
-    m_img_dsc->data = m_decoded_data;
-    m_img_dsc->data_size = m_decoded_size;
-    m_img_dsc->header.w = 0;  // Will be filled by decoder
-    m_img_dsc->header.h = 0;
-    m_img_dsc->header.cf = LV_COLOR_FORMAT_UNKNOWN;  // Let LVGL detect format
-    m_img_dsc->header.stride = 0;
-    
-    ESP_LOGI(TAG, "Image descriptor: data=%p, size=%d, w=%d, h=%d, cf=%d", 
-             m_img_dsc->data, m_img_dsc->data_size, 
-             m_img_dsc->header.w, m_img_dsc->header.h, m_img_dsc->header.cf);
+    // Initialize descriptor for LVGL
+    memset(new_img_dsc, 0, sizeof(lv_image_dsc_t));
+    new_img_dsc->header.magic = LV_IMAGE_HEADER_MAGIC;
+    new_img_dsc->header.cf = LV_COLOR_FORMAT_RAW;
+    new_img_dsc->header.w = img_w;
+    new_img_dsc->header.h = img_h;
+    new_img_dsc->data = decoded_data;
+    new_img_dsc->data_size = decoded_size;
     
     // Set the image source to the persistent descriptor
-    lv_image_set_src(m_lvgl_obj, m_img_dsc);
+    ESP_LOGD(TAG, "Calling lv_image_set_src with descriptor...");
+    lv_image_set_src(m_lvgl_obj, new_img_dsc);
     
     // Check what LVGL thinks the source is
     const void* src = lv_image_get_src(m_lvgl_obj);
     if (src) {
-        ESP_LOGI(TAG, "Image source set successfully");
         lv_image_src_t src_type = lv_image_src_get_type(src);
-        ESP_LOGI(TAG, "Image source type after set: %d (1=FILE, 2=VARIABLE, 3=SYMBOL)", src_type);
+        ESP_LOGD(TAG, "Image source set: type=%d", src_type);
     } else {
         ESP_LOGE(TAG, "Image source is NULL after setting!");
+        free_image_buffer(decoded_data);
+        free(new_img_dsc);
+        return false;
     }
+
+    // Drop cache and free old buffers only after successful set
+    if (m_img_dsc || m_decoded_data) {
+        schedule_free(m_img_dsc, m_decoded_data);
+    }
+    m_img_dsc = new_img_dsc;
+    m_decoded_data = decoded_data;
+    m_decoded_size = decoded_size;
     
     // Force LVGL to process the image
+    ESP_LOGI(TAG, "Invalidating object to trigger redraw...");
     lv_obj_invalidate(m_lvgl_obj);
-    
+        
     ESP_LOGI(TAG, "Base64 image loaded successfully");
     return true;
 }
