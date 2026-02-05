@@ -7,8 +7,8 @@
 #include "esp_timer.h"
 #include "lvgl.h"
 #include "esp_lv_decoder.h"
+#include "esp_lv_adapter.h"
 #include "bsp/esp-bsp.h"
-#include "bsp/display.h"
 #include "mqtt_manager.h"
 #include "config_manager.h"
 #include "settings_ui.h"
@@ -18,6 +18,8 @@
 #include "esp_hosted.h" // ESP-Hosted for ESP32-C6 wireless co-processor
 
 static const char *TAG = "app_main_cpp";
+
+extern "C" lv_indev_t *app_get_touch_indev(void);
 
 // Global touch event filter for backlight activity reset
 static void touch_event_cb(lv_event_t *e)
@@ -94,15 +96,18 @@ static void hmi_task(void *pvParameters)
 
     while (1)
     {
-        // Lock display and perform UI operations
-        bsp_display_lock(0);
+        // Lock LVGL and perform UI operations
+        if (esp_lv_adapter_lock(-1) != ESP_OK) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
 
         // Process any pending configuration from MQTT
         ConfigManager::getInstance().processPendingConfig();
 
         // lv_timer_handler is called automatically by the LVGL port
 
-        bsp_display_unlock();
+        esp_lv_adapter_unlock();
 
         // Sleep for a bit
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -112,8 +117,11 @@ static void hmi_task(void *pvParameters)
 // Initialize base UI with settings gear icon
 static void init_base_ui(void)
 {
-    // Lock display while creating UI
-    bsp_display_lock(0);
+    // Lock LVGL while creating UI
+    if (esp_lv_adapter_lock(-1) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to acquire LVGL lock for base UI init");
+        return;
+    }
 
     // Apply LVGL dark theme
     lv_theme_t *theme = lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE),
@@ -126,7 +134,7 @@ static void init_base_ui(void)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x1E1E1E), LV_PART_MAIN);
 
     // Add global event to catch all touch events for backlight activity
-    lv_indev_t *indev_touch = bsp_display_get_input_dev();
+    lv_indev_t *indev_touch = app_get_touch_indev();
     if (indev_touch == NULL)
     {
         ESP_LOGW(TAG, "No active input device found for touch event handling");
@@ -140,7 +148,7 @@ static void init_base_ui(void)
     // Initialize settings UI (creates gear icon in bottom-right)
     SettingsUI::getInstance().init(scr);
 
-    bsp_display_unlock();
+    esp_lv_adapter_unlock();
 
     // Initialize backlight manager (10 seconds timeout, dim to 5%, 1 second fade)
     BacklightManager::getInstance().init(30, 5, 1000);

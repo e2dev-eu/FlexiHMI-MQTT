@@ -11,12 +11,9 @@
 static const char *TAG = "ImageWidget";
 
 static uint8_t* alloc_image_buffer(size_t size) {
-    uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!buf) {
-        buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_8BIT);
-    }
-    if (!buf) {
-        buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        ESP_LOGE(TAG, "Failed to allocate %d bytes in DMA-capable internal memory", size);
     }
     return buf;
 }

@@ -7,3 +7,6 @@ set(EXTRA_COMPONENT_DIRS components)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(esp32p4_lvgl_panel)
+
+# Increase PPA pending transactions to avoid overflow under heavy UI load
+idf_build_set_property(COMPILE_DEFINITIONS "LVGL_PORT_PPA_MAX_PENDING_TRANS=16" APPEND)
