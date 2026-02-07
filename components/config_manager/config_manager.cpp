@@ -75,6 +75,9 @@ bool ConfigManager::parseAndApply(const std::string& json_config) {
     
     // Destroy existing widgets
     destroyAllWidgets();
+
+    // Drop LVGL image cache to avoid stale cached images after reload
+    lv_image_cache_drop(nullptr);
     
     // Parse widgets array
     cJSON* widgets_array = cJSON_GetObjectItem(root, "widgets");
@@ -161,36 +164,36 @@ bool ConfigManager::parseWidgets(cJSON* widgets_array, lv_obj_t* parent) {
     return true;
 }
 
-HMIWidget* ConfigManager::createWidgetByType(const std::string& type) {
+HMIWidget* ConfigManager::createWidgetByType(const std::string& type, const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     if (type == "label") {
-        return new LabelWidget();
+        return new LabelWidget(id, x, y, w, h, properties, parent);
     } else if (type == "button") {
-        return new ButtonWidget();
+        return new ButtonWidget(id, x, y, w, h, properties, parent);
     } else if (type == "container") {
-        return new ContainerWidget();
+        return new ContainerWidget(id, x, y, w, h, properties, parent);
     } else if (type == "switch") {
-        return new SwitchWidget();
+        return new SwitchWidget(id, x, y, w, h, properties, parent);
     } else if (type == "slider") {
-        return new SliderWidget();
+        return new SliderWidget(id, x, y, w, h, properties, parent);
     } else if (type == "bar") {
-        return new BarWidget();
+        return new BarWidget(id, x, y, w, h, properties, parent);
     } else if (type == "arc") {
-        return new ArcWidget();
+        return new ArcWidget(id, x, y, w, h, properties, parent);
     } else if (type == "checkbox") {
-        return new CheckboxWidget();
+        return new CheckboxWidget(id, x, y, w, h, properties, parent);
     } else if (type == "dropdown") {
-        return new DropdownWidget();
+        return new DropdownWidget(id, x, y, w, h, properties, parent);
     } else if (type == "led") {
-        return new LEDWidget();
+        return new LEDWidget(id, x, y, w, h, properties, parent);
     } else if (type == "spinner") {
-        return new SpinnerWidget();
+        return new SpinnerWidget(id, x, y, w, h, properties, parent);
     } else if (type == "tabview") {
-        return new TabviewWidget();
+        return new TabviewWidget(id, x, y, w, h, properties, parent);
     } else if (type == "gauge") {
-        return new GaugeWidget();
-    }    else if (type == "image") {
-        return new ImageWidget();
-    }    
+        return new GaugeWidget(id, x, y, w, h, properties, parent);
+    } else if (type == "image") {
+        return new ImageWidget(id, x, y, w, h, properties, parent);
+    }
     ESP_LOGE(TAG, "Unknown widget type: %s", type.c_str());
     return nullptr;
 }
@@ -267,23 +270,12 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     int w = w_item->valueint;
     int h = h_item->valueint;
     
-    // Get properties object
     cJSON* properties = cJSON_GetObjectItem(widget_json, "properties");
-    if (!properties) {
-        properties = cJSON_CreateObject();
-    }
     
     // Create widget using direct factory instead of registry
-    HMIWidget* widget = createWidgetByType(type);
+    HMIWidget* widget = createWidgetByType(type, id, x, y, w, h, properties, parent);
     if (!widget) {
         ESP_LOGE(TAG, "Failed to create widget of type '%s'", type.c_str());
-        return false;
-    }
-    
-    // Create the widget on screen (with optional parent)
-    if (!widget->create(id, x, y, w, h, properties, parent)) {
-        ESP_LOGE(TAG, "Failed to initialize widget '%s'", id.c_str());
-        delete widget;
         return false;
     }
     
@@ -291,11 +283,16 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
     cJSON* mqtt_sub = cJSON_GetObjectItem(widget_json, "mqtt_subscribe");
     if (mqtt_sub && cJSON_IsString(mqtt_sub)) {
         std::string topic = mqtt_sub->valuestring;
-        MQTTManager::getInstance().subscribe(topic, 0, 
+        auto handle = MQTTManager::getInstance().subscribe(topic, 0, 
             [widget](const std::string& topic, const std::string& payload) {
                 widget->onMqttMessage(topic, payload);
             });
-        ESP_LOGV(TAG, "Widget '%s' subscribed to %s", id.c_str(), topic.c_str());
+        if (handle != 0) {
+            m_config_subscriptions.push_back(handle);
+            ESP_LOGV(TAG, "Widget '%s' subscribed to %s", id.c_str(), topic.c_str());
+        } else {
+            ESP_LOGW(TAG, "Widget '%s' failed to subscribe to %s", id.c_str(), topic.c_str());
+        }
     }
     
     // Process children if present
@@ -341,9 +338,13 @@ bool ConfigManager::createWidget(cJSON* widget_json, lv_obj_t* parent) {
 
 void ConfigManager::destroyAllWidgets() {
     ESP_LOGV(TAG, "Destroying %d widgets", m_active_widgets.size());
+
+    for (auto handle : m_config_subscriptions) {
+        MQTTManager::getInstance().unsubscribe(handle);
+    }
+    m_config_subscriptions.clear();
     
     for (HMIWidget* widget : m_active_widgets) {
-        widget->destroy();
         delete widget;
     }
     

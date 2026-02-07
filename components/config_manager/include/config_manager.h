@@ -5,6 +5,7 @@
 #include <memory>
 #include "cJSON.h"
 #include "hmi_widget.h"
+#include "mqtt_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -36,10 +37,11 @@ private:
     
     bool parseWidgets(cJSON* widgets_array, lv_obj_t* parent = nullptr);
     bool createWidget(cJSON* widget_json, lv_obj_t* parent = nullptr);
-    HMIWidget* createWidgetByType(const std::string& type);
+    HMIWidget* createWidgetByType(const std::string& type, const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent);
     
     int m_current_version;
     std::vector<HMIWidget*> m_active_widgets;
+    std::vector<MQTTManager::SubscriptionHandle> m_config_subscriptions;
     
     // Pending config for deferred application
     std::string m_pending_config;

@@ -74,7 +74,7 @@ static void mqtt_task(void *pvParameters)
         // Subscribe to configuration topic
         mqtt.subscribe(config_topic, 0, [](const std::string &topic, const std::string &payload)
                        {
-            ESP_LOGI(TAG, "Received config on %s, size: %d bytes", topic.c_str(), payload.size());
+            ESP_LOGD(TAG, "Received config on %s, size: %d bytes", topic.c_str(), payload.size());
             ConfigManager::getInstance().queueConfig(payload); });
     }
     else

@@ -5,7 +5,7 @@
 
 static const char *TAG = "SpinnerWidget";
 
-bool SpinnerWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+SpinnerWidget::SpinnerWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     
     // Extract properties
@@ -31,7 +31,7 @@ bool SpinnerWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     m_lvgl_obj = lv_spinner_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create spinner widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -52,11 +52,9 @@ bool SpinnerWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     }
     
     ESP_LOGI(TAG, "Created spinner widget: %s at (%d,%d)", id.c_str(), x, y);
-    
-    return true;
 }
 
-void SpinnerWidget::destroy() {
+SpinnerWidget::~SpinnerWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

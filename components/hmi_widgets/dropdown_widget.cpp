@@ -5,7 +5,7 @@
 
 static const char *TAG = "DropdownWidget";
 
-bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+DropdownWidget::DropdownWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_selected = 0;
     m_retained = true;
@@ -55,7 +55,7 @@ bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, c
     m_lvgl_obj = lv_dropdown_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create dropdown widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -93,11 +93,9 @@ bool DropdownWidget::create(const std::string& id, int x, int y, int w, int h, c
     
     ESP_LOGI(TAG, "Created dropdown widget: %s at (%d,%d) with %d options", 
              id.c_str(), x, y, m_options.size());
-    
-    return true;
 }
 
-void DropdownWidget::destroy() {
+DropdownWidget::~DropdownWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

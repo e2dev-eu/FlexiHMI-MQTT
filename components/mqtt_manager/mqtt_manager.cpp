@@ -10,10 +10,15 @@ MQTTManager& MQTTManager::getInstance() {
 }
 
 MQTTManager::MQTTManager() : m_client(nullptr), m_connected(false) {
+    m_mutex = xSemaphoreCreateMutex();
 }
 
 MQTTManager::~MQTTManager() {
     deinit();
+    if (m_mutex) {
+        vSemaphoreDelete(m_mutex);
+        m_mutex = nullptr;
+    }
 }
 
 bool MQTTManager::init(const std::string& broker_uri, const std::string& client_id) {
@@ -95,8 +100,15 @@ void MQTTManager::deinit() {
         esp_mqtt_client_destroy(m_client);
         m_client = nullptr;
         m_connected = false;
+        if (m_mutex) {
+            xSemaphoreTake(m_mutex, portMAX_DELAY);
+        }
         m_subscribers.clear();
+        m_handle_to_topic.clear();
         m_qos_map.clear();
+        if (m_mutex) {
+            xSemaphoreGive(m_mutex);
+        }
         ESP_LOGI(TAG, "MQTT client deinitialized");
     }
 }
@@ -106,32 +118,40 @@ MQTTManager::SubscriptionHandle MQTTManager::subscribe(const std::string& topic,
         ESP_LOGE(TAG, "MQTT client not initialized");
         return 0;  // Invalid handle
     }
-    
-    // Generate unique handle
-    SubscriptionHandle handle = m_next_handle++;
-    
-    // Store subscription with handle
+
+    bool first_subscriber = false;
+    SubscriptionHandle handle = 0;
+    if (m_mutex) {
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
+    }
+
+    handle = m_next_handle++;
     Subscription sub{handle, callback};
     m_subscribers[topic].push_back(sub);
     m_handle_to_topic[handle] = topic;
-    
-    // Only subscribe to broker once per topic
-    bool first_subscriber = (m_subscribers[topic].size() == 1);
+    first_subscriber = (m_subscribers[topic].size() == 1);
     if (first_subscriber) {
         m_qos_map[topic] = qos;
-        
-        if (m_connected) {
-            int msg_id = esp_mqtt_client_subscribe(m_client, topic.c_str(), qos);
-            if (msg_id == -1) {
-                ESP_LOGE(TAG, "Failed to subscribe to %s", topic.c_str());
-                return 0;
-            }
-            ESP_LOGI(TAG, "Subscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
-        }
-    } else {
-        ESP_LOGI(TAG, "Added subscriber to existing topic %s (total: %d)", topic.c_str(), m_subscribers[topic].size());
     }
-    
+
+    size_t topic_count = m_subscribers.size();
+    size_t handle_count = m_handle_to_topic.size();
+    if (m_mutex) {
+        xSemaphoreGive(m_mutex);
+    }
+
+    if (first_subscriber && m_connected) {
+        int msg_id = esp_mqtt_client_subscribe(m_client, topic.c_str(), qos);
+        if (msg_id == -1) {
+            ESP_LOGE(TAG, "Failed to subscribe to %s", topic.c_str());
+            return 0;
+        }
+        ESP_LOGD(TAG, "Subscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
+    } else if (!first_subscriber) {
+        ESP_LOGD(TAG, "Added subscriber to existing topic %s", topic.c_str());
+    }
+
+    ESP_LOGD(TAG, "MQTT subs: topics=%u handles=%u", (unsigned)topic_count, (unsigned)handle_count);
     return handle;
 }
 
@@ -139,42 +159,59 @@ bool MQTTManager::unsubscribe(SubscriptionHandle handle) {
     if (handle == 0) {
         return false;  // Invalid handle
     }
-    
-    // Find topic for this handle
+
+    std::string topic;
+    bool unsubscribe_broker = false;
+    size_t topic_count = 0;
+    size_t handle_count = 0;
+
+    if (m_mutex) {
+        xSemaphoreTake(m_mutex, portMAX_DELAY);
+    }
+
     auto topic_it = m_handle_to_topic.find(handle);
     if (topic_it == m_handle_to_topic.end()) {
+        if (m_mutex) {
+            xSemaphoreGive(m_mutex);
+        }
         ESP_LOGW(TAG, "Unknown subscription handle: %u", handle);
         return false;
     }
-    
-    std::string topic = topic_it->second;
+
+    topic = topic_it->second;
     m_handle_to_topic.erase(topic_it);
-    
-    // Remove subscription from topic's callback list
+
     auto sub_it = m_subscribers.find(topic);
     if (sub_it != m_subscribers.end()) {
         auto& subs = sub_it->second;
         subs.erase(std::remove_if(subs.begin(), subs.end(),
             [handle](const Subscription& s) { return s.handle == handle; }),
             subs.end());
-        
-        ESP_LOGI(TAG, "Unsubscribed handle %u from %s (%d remaining)", 
+
+        ESP_LOGD(TAG, "Unsubscribed handle %u from %s (%d remaining)", 
                  handle, topic.c_str(), subs.size());
-        
-        // If no more subscribers for this topic, unsubscribe from broker
+
         if (subs.empty()) {
             m_subscribers.erase(sub_it);
             m_qos_map.erase(topic);
-            
-            if (m_connected && m_client) {
-                int msg_id = esp_mqtt_client_unsubscribe(m_client, topic.c_str());
-                if (msg_id != -1) {
-                    ESP_LOGI(TAG, "Unsubscribed from broker topic %s, msg_id=%d", topic.c_str(), msg_id);
-                }
-            }
+            unsubscribe_broker = true;
         }
     }
-    
+
+    topic_count = m_subscribers.size();
+    handle_count = m_handle_to_topic.size();
+    if (m_mutex) {
+        xSemaphoreGive(m_mutex);
+    }
+
+    if (unsubscribe_broker && m_connected && m_client) {
+        int msg_id = esp_mqtt_client_unsubscribe(m_client, topic.c_str());
+        if (msg_id != -1) {
+            ESP_LOGD(TAG, "Unsubscribed from broker topic %s, msg_id=%d", topic.c_str(), msg_id);
+        }
+    }
+
+    ESP_LOGD(TAG, "MQTT subs: topics=%u handles=%u", (unsigned)topic_count, (unsigned)handle_count);
     return true;
 }
 
@@ -205,7 +242,7 @@ bool MQTTManager::unsubscribeTopic(const std::string& topic) {
             ESP_LOGE(TAG, "Failed to unsubscribe from %s", topic.c_str());
             return false;
         }
-        ESP_LOGI(TAG, "Unsubscribed from %s, msg_id=%d", topic.c_str(), msg_id);
+        ESP_LOGD(TAG, "Unsubscribed from %s, msg_id=%d", topic.c_str(), msg_id);
     }
     
     return true;
@@ -273,7 +310,7 @@ void MQTTManager::handleConnected() {
         const std::string& topic = sub.first;
         int qos = m_qos_map[topic];
         int msg_id = esp_mqtt_client_subscribe(m_client, topic.c_str(), qos);
-        ESP_LOGI(TAG, "Resubscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
+        ESP_LOGD(TAG, "Resubscribed to %s (QoS %d), msg_id=%d", topic.c_str(), qos, msg_id);
     }
 }
 
@@ -302,27 +339,40 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
             m_chunk_buffer.reserve(event->total_data_len);
         }
         
+        std::string payload;
+        std::vector<Subscription> subs_copy;
+
+        if (m_mutex) {
+            xSemaphoreTake(m_mutex, portMAX_DELAY);
+        }
+
         // Accumulate chunk
         m_chunk_buffer.append(event->data, event->data_len);
-        
-        // Check if we have all chunks
+
         if (m_chunk_buffer.size() >= static_cast<size_t>(event->total_data_len)) {
             ESP_LOGI(TAG, "Complete message received on %s: %d bytes", topic.c_str(), m_chunk_buffer.size());
-            
+            payload = m_chunk_buffer;
+            m_chunk_buffer.clear();
+
+            auto it = m_subscribers.find(topic);
+            if (it != m_subscribers.end()) {
+                subs_copy = it->second;
+            }
+        }
+
+        if (m_mutex) {
+            xSemaphoreGive(m_mutex);
+        }
+
+        if (!payload.empty()) {
             m_messages_received++;
             if (m_status_callback) {
                 m_status_callback(m_connected, m_messages_received, m_messages_sent);
             }
-            
-            // Find matching subscribers and deliver complete message to all
-            auto it = m_subscribers.find(topic);
-            if (it != m_subscribers.end()) {
-                for (auto& sub : it->second) {
-                    sub.callback(topic, m_chunk_buffer);
-                }
+
+            for (auto& sub : subs_copy) {
+                sub.callback(topic, payload);
             }
-            
-            m_chunk_buffer.clear();
         }
     } else {
         // Single chunk message
@@ -334,11 +384,21 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
             m_status_callback(m_connected, m_messages_received, m_messages_sent);
         }
         
-        // Find matching subscribers and invoke all callbacks
+        std::vector<Subscription> subs_copy;
+        if (m_mutex) {
+            xSemaphoreTake(m_mutex, portMAX_DELAY);
+        }
         auto it = m_subscribers.find(topic);
         if (it != m_subscribers.end()) {
-            ESP_LOGD(TAG, "Delivering to %d subscriber(s)", it->second.size());
-            for (auto& sub : it->second) {
+            subs_copy = it->second;
+        }
+        if (m_mutex) {
+            xSemaphoreGive(m_mutex);
+        }
+
+        if (!subs_copy.empty()) {
+            ESP_LOGD(TAG, "Delivering to %d subscriber(s)", subs_copy.size());
+            for (auto& sub : subs_copy) {
                 sub.callback(topic, payload);
             }
         } else {

@@ -5,7 +5,7 @@
 
 static const char *TAG = "SliderWidget";
 
-bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+SliderWidget::SliderWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_min = 0;
     m_max = 100;
@@ -68,7 +68,7 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     m_lvgl_obj = lv_slider_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create slider widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -104,11 +104,9 @@ bool SliderWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     
     ESP_LOGI(TAG, "Created slider widget: %s at (%d,%d) range [%d,%d]", 
              id.c_str(), x, y, m_min, m_max);
-    
-    return true;
 }
 
-void SliderWidget::destroy() {
+SliderWidget::~SliderWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

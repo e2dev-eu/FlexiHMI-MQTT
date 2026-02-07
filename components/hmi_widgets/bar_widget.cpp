@@ -5,7 +5,7 @@
 
 static const char *TAG = "BarWidget";
 
-bool BarWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+BarWidget::BarWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_min = 0;
     m_max = 100;
@@ -49,7 +49,7 @@ bool BarWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     m_lvgl_obj = lv_bar_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create bar widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -74,11 +74,9 @@ bool BarWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     
     ESP_LOGI(TAG, "Created bar widget: %s at (%d,%d) size (%dx%d)", 
              id.c_str(), x, y, w, h);
-    
-    return true;
 }
 
-void BarWidget::destroy() {
+BarWidget::~BarWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

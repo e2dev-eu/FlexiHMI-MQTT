@@ -5,7 +5,7 @@
 
 static const char *TAG = "CheckboxWidget";
 
-bool CheckboxWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+CheckboxWidget::CheckboxWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_checked = false;
     m_retained = true;
@@ -49,7 +49,7 @@ bool CheckboxWidget::create(const std::string& id, int x, int y, int w, int h, c
     m_lvgl_obj = lv_checkbox_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create checkbox widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -78,11 +78,9 @@ bool CheckboxWidget::create(const std::string& id, int x, int y, int w, int h, c
     }
     
     ESP_LOGI(TAG, "Created checkbox widget: %s at (%d,%d)", id.c_str(), x, y);
-    
-    return true;
 }
 
-void CheckboxWidget::destroy() {
+CheckboxWidget::~CheckboxWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

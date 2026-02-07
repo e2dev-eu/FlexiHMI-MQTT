@@ -3,7 +3,7 @@
 
 static const char *TAG = "ContainerWidget";
 
-bool ContainerWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+ContainerWidget::ContainerWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     
     // Create container object
@@ -11,7 +11,7 @@ bool ContainerWidget::create(const std::string& id, int x, int y, int w, int h, 
     m_lvgl_obj = lv_obj_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create container widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -38,11 +38,9 @@ bool ContainerWidget::create(const std::string& id, int x, int y, int w, int h, 
     
     ESP_LOGI(TAG, "Created container widget: %s at (%d,%d) size (%dx%d)", 
              id.c_str(), x, y, w, h);
-    
-    return true;
 }
 
-void ContainerWidget::destroy() {
+ContainerWidget::~ContainerWidget() {
     if (m_lvgl_obj) {
         lv_obj_delete(m_lvgl_obj);
         m_lvgl_obj = nullptr;

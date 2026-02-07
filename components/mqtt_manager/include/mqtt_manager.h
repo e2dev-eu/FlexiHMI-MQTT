@@ -5,6 +5,8 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "mqtt_client.h"
 
 class MQTTManager {
@@ -47,6 +49,10 @@ public:
     
     // Register status change callback
     void setStatusCallback(StatusCallback callback) { m_status_callback = callback; }
+
+    // Debug counters
+    size_t getSubscriberCount() const { return m_handle_to_topic.size(); }
+    size_t getTopicCount() const { return m_subscribers.size(); }
     
 private:
     MQTTManager();
@@ -73,6 +79,7 @@ private:
     std::map<std::string, int> m_qos_map; // Store QoS for each topic
     std::string m_chunk_buffer; // Buffer for accumulating chunked messages
     SubscriptionHandle m_next_handle = 1;  // Auto-increment handle
+    SemaphoreHandle_t m_mutex = nullptr;
     
     // Statistics
     uint32_t m_messages_received;

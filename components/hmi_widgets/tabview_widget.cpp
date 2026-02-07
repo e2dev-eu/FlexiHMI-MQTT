@@ -4,7 +4,7 @@
 
 static const char *TAG = "TabviewWidget";
 
-bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+TabviewWidget::TabviewWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_updating_from_mqtt = false;
     m_retained = true;
@@ -13,19 +13,19 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     // Get tab names from properties
     if (!properties) {
         ESP_LOGE(TAG, "Missing properties for tabview widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     cJSON* tabs = cJSON_GetObjectItem(properties, "tabs");
     if (!tabs || !cJSON_IsArray(tabs)) {
         ESP_LOGE(TAG, "Missing or invalid 'tabs' array for tabview widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     int tab_count = cJSON_GetArraySize(tabs);
     if (tab_count == 0) {
         ESP_LOGE(TAG, "Empty tabs array for tabview widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     // Store tab names
@@ -41,7 +41,7 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     m_lvgl_obj = lv_tabview_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create tabview widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -121,11 +121,9 @@ bool TabviewWidget::create(const std::string& id, int x, int y, int w, int h, cJ
     
     ESP_LOGI(TAG, "Created tabview widget: %s with %d tabs at (%d,%d) size (%dx%d)", 
              id.c_str(), m_tab_names.size(), x, y, w, h);
-    
-    return true;
 }
 
-void TabviewWidget::destroy() {
+TabviewWidget::~TabviewWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

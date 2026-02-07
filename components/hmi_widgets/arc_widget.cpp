@@ -6,7 +6,7 @@
 
 static const char *TAG = "ArcWidget";
 
-bool ArcWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+ArcWidget::ArcWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_min = 0;
     m_max = 100;
@@ -56,7 +56,7 @@ bool ArcWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     m_lvgl_obj = lv_arc_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create arc widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -83,11 +83,9 @@ bool ArcWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     }
     
     ESP_LOGI(TAG, "Created arc widget: %s at (%d,%d)", id.c_str(), x, y);
-    
-    return true;
 }
 
-void ArcWidget::destroy() {
+ArcWidget::~ArcWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -95,7 +93,7 @@ void ArcWidget::destroy() {
     if (m_lvgl_obj) {
         lv_obj_delete(m_lvgl_obj);
         m_lvgl_obj = nullptr;
-        ESP_LOGI(TAG, "Destroyed arc widget: %s", m_id.c_str());
+        ESP_LOGD(TAG, "Destroyed arc widget: %s", m_id.c_str());
     }
 }
 

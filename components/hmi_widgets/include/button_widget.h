@@ -9,8 +9,8 @@
  */
 class ButtonWidget : public HMIWidget {
 public:
-    bool create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent = nullptr) override;
-    void destroy() override;
+    ButtonWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent = nullptr);
+    ~ButtonWidget() override;
     void onMqttMessage(const std::string& topic, const std::string& payload) override;
 
 private:

@@ -4,7 +4,7 @@
 
 static const char *TAG = "SwitchWidget";
 
-bool SwitchWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+SwitchWidget::SwitchWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_state = false;
     m_retained = true;  // Default to retained messages
@@ -42,7 +42,7 @@ bool SwitchWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     m_lvgl_obj = lv_switch_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create switch widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -73,11 +73,9 @@ bool SwitchWidget::create(const std::string& id, int x, int y, int w, int h, cJS
     }
     
     ESP_LOGI(TAG, "Created switch widget: %s at (%d,%d)", id.c_str(), x, y);
-    
-    return true;
 }
 
-void SwitchWidget::destroy() {
+SwitchWidget::~SwitchWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

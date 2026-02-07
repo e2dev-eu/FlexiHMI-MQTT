@@ -6,7 +6,7 @@
 
 static const char *TAG = "LEDWidget";
 
-bool LEDWidget::create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
+LEDWidget::LEDWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_brightness = 255;
     m_color_on = lv_color_hex(0x00FF00);   // Green
@@ -48,7 +48,7 @@ bool LEDWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     m_lvgl_obj = lv_led_create(parent_obj);
     if (!m_lvgl_obj) {
         ESP_LOGE(TAG, "Failed to create LED widget: %s", id.c_str());
-        return false;
+        return;
     }
     
     lv_obj_set_pos(m_lvgl_obj, x, y);
@@ -69,11 +69,9 @@ bool LEDWidget::create(const std::string& id, int x, int y, int w, int h, cJSON*
     }
     
     ESP_LOGI(TAG, "Created LED widget: %s at (%d,%d)", id.c_str(), x, y);
-    
-    return true;
 }
 
-void LEDWidget::destroy() {
+LEDWidget::~LEDWidget() {
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;

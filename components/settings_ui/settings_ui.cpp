@@ -254,9 +254,28 @@ void SettingsUI::createSettingsScreen() {
     createWifiNetworkTab(wifi_net_tab);
     createWifiRadioTab(wifi_radio_tab);
     createAboutTab(about_tab);
+
+    // Close tab content (explicit button)
+    lv_obj_t* close_container = lv_obj_create(close_tab);
+    lv_obj_set_size(close_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(close_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_opa(close_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(close_container, 0, 0);
+
+    lv_obj_t* close_btn = lv_button_create(close_container);
+    lv_obj_set_size(close_btn, 220, 60);
+    lv_obj_center(close_btn);
+    lv_obj_add_event_cb(close_btn, close_clicked_cb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* close_label = lv_label_create(close_btn);
+    lv_label_set_text(close_label, "Close Settings");
+    lv_obj_center(close_label);
     
     // Add event callback to tabview for tab changes
     lv_obj_add_event_cb(m_tabview, tab_changed_cb, LV_EVENT_VALUE_CHANGED, this);
+    lv_obj_t* tab_btns = lv_tabview_get_tab_btns(m_tabview);
+    lv_obj_add_event_cb(tab_btns, tab_changed_cb, LV_EVENT_VALUE_CHANGED, this);
+    lv_obj_add_event_cb(tab_btns, tab_changed_cb, LV_EVENT_CLICKED, this);
     
     // Store settings_screen as tabview for destroy operations
     m_settings_screen = m_tabview;
@@ -1123,7 +1142,7 @@ void SettingsUI::show() {
 }
 
 void SettingsUI::hide() {
-    if (m_visible && m_settings_screen) {
+    if (m_settings_screen) {
         // Hide keyboard if visible
         if (m_keyboard) {
             lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);

@@ -7,8 +7,8 @@
 
 class TabviewWidget : public HMIWidget {
 public:
-    bool create(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent = nullptr) override;
-    void destroy() override;
+    TabviewWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent = nullptr);
+    ~TabviewWidget() override;
     void onMqttMessage(const std::string& topic, const std::string& payload) override;
     
     // Get tab object by name for child widget placement
