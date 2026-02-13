@@ -11,6 +11,7 @@ GaugeWidget::GaugeWidget(const std::string& id, int x, int y, int w, int h, cJSO
     m_value = 0;
     m_min_value = 0;
     m_max_value = 100;
+    m_pending_value = m_value;
     
     // Extract properties
     if (properties) {
@@ -107,6 +108,7 @@ GaugeWidget::GaugeWidget(const std::string& id, int x, int y, int w, int h, cJSO
 }
 
 GaugeWidget::~GaugeWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -126,17 +128,18 @@ void GaugeWidget::onMqttMessage(const std::string& topic, const std::string& pay
     // Clamp value to range
     if (new_value < m_min_value) new_value = m_min_value;
     if (new_value > m_max_value) new_value = m_max_value;
-    
-    AsyncUpdateData* data = new AsyncUpdateData{this, new_value};
-    lv_async_call(async_update_cb, data);
+
+    m_pending_value = new_value;
+    scheduleAsync(async_update_cb, this);
 }
 
 void GaugeWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateValue(data->value);
+    GaugeWidget* widget = static_cast<GaugeWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateValue(widget->m_pending_value);
 }
 
 void GaugeWidget::updateValue(int value) {

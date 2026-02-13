@@ -19,11 +19,6 @@ public:
     void onMqttMessage(const std::string& topic, const std::string& payload) override;
 
 private:
-    struct AsyncUpdateData {
-        ImageWidget* widget;
-        std::string data;
-    };
-    
     static void async_update_cb(void* user_data);
     void updateImage(const std::string& data);
     bool loadImageFromPath(const std::string& path);
@@ -39,6 +34,7 @@ private:
     void schedule_free(lv_image_dsc_t* dsc, uint8_t* data);
     
     std::string m_image_path;
+    std::string m_pending_data;
     std::string m_mqtt_topic;
     uint32_t m_subscription_handle = 0;
     lv_image_dsc_t* m_img_dsc = nullptr;

@@ -11,15 +11,11 @@ public:
 private:
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        GaugeWidget* widget;
-        int value;
-    };
-    
     void updateValue(int value);
     
     std::string m_mqtt_topic;
     int m_value;
+    int m_pending_value = 0;
     int m_min_value;
     int m_max_value;
     uint32_t m_subscription_handle = 0;  // MQTT subscription handle

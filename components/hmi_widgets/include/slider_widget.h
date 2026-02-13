@@ -12,11 +12,6 @@ private:
     static void slider_event_cb(lv_event_t* e);
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        SliderWidget* widget;
-        int value;
-    };
-    
     void updateValue(int value);
     
     std::string m_label;
@@ -24,6 +19,7 @@ private:
     int m_min;
     int m_max;
     int m_value;
+    int m_pending_value = 0;
     bool m_retained;
     bool m_updating_from_mqtt = false;  // Prevent feedback loop
     int m_last_published_value = -1;  // Track last published value to ignore echo

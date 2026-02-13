@@ -8,6 +8,7 @@ static const char *TAG = "DropdownWidget";
 DropdownWidget::DropdownWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_selected = 0;
+    m_pending_selected = m_selected;
     m_retained = true;
     m_last_published_payload = "";  // No echo to ignore yet
     
@@ -96,6 +97,7 @@ DropdownWidget::DropdownWidget(const std::string& id, int x, int y, int w, int h
 }
 
 DropdownWidget::~DropdownWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -167,17 +169,18 @@ void DropdownWidget::onMqttMessage(const std::string& topic, const std::string& 
     }
     
     if (new_selected != m_selected) {
-        AsyncUpdateData* data = new AsyncUpdateData{this, new_selected};
-        lv_async_call(async_update_cb, data);
+        m_pending_selected = new_selected;
+        scheduleAsync(async_update_cb, this);
     }
 }
 
 void DropdownWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateSelection(data->selected);
+    DropdownWidget* widget = static_cast<DropdownWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateSelection(widget->m_pending_selected);
 }
 
 void DropdownWidget::updateSelection(uint16_t selected) {

@@ -48,6 +48,8 @@ LabelWidget::LabelWidget(const std::string& id, int x, int y, int w, int h, cJSO
             align_str = align_item->valuestring;
         }
     }
+
+    m_pending_text = m_text;
     
     // Create label object
     lv_obj_t* parent_obj = parent ? parent : lv_screen_active();
@@ -116,6 +118,7 @@ LabelWidget::LabelWidget(const std::string& id, int x, int y, int w, int h, cJSO
 }
 
 LabelWidget::~LabelWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -140,16 +143,17 @@ void LabelWidget::onMqttMessage(const std::string& topic, const std::string& pay
     }
     
     // Use async call to update LVGL widget from LVGL thread
-    AsyncUpdateData* data = new AsyncUpdateData{this, new_text};
-    lv_async_call(async_update_cb, data);
+    m_pending_text = new_text;
+    scheduleAsync(async_update_cb, this);
 }
 
 void LabelWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateText(data->text);
+    LabelWidget* widget = static_cast<LabelWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateText(widget->m_pending_text);
 }
 
 void LabelWidget::updateText(const std::string& text) {

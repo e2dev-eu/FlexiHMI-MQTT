@@ -12,17 +12,13 @@ private:
     static void arc_event_cb(lv_event_t* e);
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        ArcWidget* widget;
-        int value;
-    };
-    
     void updateValue(int value);
     
     std::string m_mqtt_topic;
     int m_min;
     int m_max;
     int m_value;
+    int m_pending_value = 0;
     bool m_retained;
     bool m_updating_from_mqtt = false;
     uint32_t m_subscription_handle = 0;  // MQTT subscription handle

@@ -10,6 +10,7 @@ SliderWidget::SliderWidget(const std::string& id, int x, int y, int w, int h, cJ
     m_min = 0;
     m_max = 100;
     m_value = 50;
+    m_pending_value = m_value;
     m_retained = true;  // Default to retained messages
     m_last_published_value = -1;  // Invalid value, no echo to ignore yet
     
@@ -107,6 +108,7 @@ SliderWidget::SliderWidget(const std::string& id, int x, int y, int w, int h, cJ
 }
 
 SliderWidget::~SliderWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -144,23 +146,21 @@ void SliderWidget::onMqttMessage(const std::string& topic, const std::string& pa
         if (value == m_value) {
             return;
         }
-        
-        // Allocate data for async call (will be freed in callback)
-        AsyncUpdateData* data = new AsyncUpdateData{this, value};
-        
-        // Schedule update on LVGL task
-        lv_async_call(async_update_cb, data);
+
+        m_pending_value = value;
+        scheduleAsync(async_update_cb, this);
         
         ESP_LOGD(TAG, "Scheduled async update for slider %s: %d", m_id.c_str(), value);
     }
 }
 
 void SliderWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateValue(data->value);
+    SliderWidget* widget = static_cast<SliderWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateValue(widget->m_pending_value);
 }
 
 void SliderWidget::updateValue(int value) {

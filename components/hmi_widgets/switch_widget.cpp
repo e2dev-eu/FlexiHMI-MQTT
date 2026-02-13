@@ -7,6 +7,7 @@ static const char *TAG = "SwitchWidget";
 SwitchWidget::SwitchWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_state = false;
+    m_pending_state = m_state;
     m_retained = true;  // Default to retained messages
     
     // Extract properties
@@ -76,6 +77,7 @@ SwitchWidget::SwitchWidget(const std::string& id, int x, int y, int w, int h, cJ
 }
 
 SwitchWidget::~SwitchWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -99,22 +101,20 @@ void SwitchWidget::onMqttMessage(const std::string& topic, const std::string& pa
     if (new_state == m_state) {
         return;
     }
-    
-    // Allocate data for async call (will be freed in callback)
-    AsyncUpdateData* data = new AsyncUpdateData{this, new_state};
-    
-    // Schedule update on LVGL task
-    lv_async_call(async_update_cb, data);
+
+    m_pending_state = new_state;
+    scheduleAsync(async_update_cb, this);
     
     ESP_LOGD(TAG, "Scheduled async update for switch %s: %s", m_id.c_str(), new_state ? "ON" : "OFF");
 }
 
 void SwitchWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateState(data->state);
+    SwitchWidget* widget = static_cast<SwitchWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateState(widget->m_pending_state);
 }
 
 void SwitchWidget::updateState(bool new_state) {

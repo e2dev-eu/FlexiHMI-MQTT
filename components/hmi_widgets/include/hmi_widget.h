@@ -30,8 +30,13 @@ public:
     lv_obj_t* getLvglObject() const { return m_lvgl_obj; }
 
 protected:
+    void scheduleAsync(lv_async_cb_t cb, void* user_data);
+    void cancelAsync(lv_async_cb_t cb, void* user_data);
+    void markAsyncComplete();
+
     std::string m_id;
     lv_obj_t* m_lvgl_obj = nullptr;
+    bool m_async_pending = false;
 };
 
 #endif // HMI_WIDGET_H

@@ -125,6 +125,8 @@ ImageWidget::ImageWidget(const std::string& id, int x, int y, int w, int h, cJSO
             m_mqtt_topic = mqtt_topic->valuestring;
         }
     }
+
+    m_pending_data = m_image_path;
     
     // Create image object
     lv_obj_t* parent_obj = parent ? parent : lv_screen_active();
@@ -191,6 +193,7 @@ ImageWidget::ImageWidget(const std::string& id, int x, int y, int w, int h, cJSO
 }
 
 ImageWidget::~ImageWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -241,21 +244,20 @@ void ImageWidget::onMqttMessage(const std::string& topic, const std::string& pay
     // Payload can be either a file path or base64-encoded image data
     ESP_LOGI(TAG, "Image %s received MQTT message on %s (size: %d bytes)", 
              m_id.c_str(), topic.c_str(), payload.size());
-    
-    AsyncUpdateData* data = new AsyncUpdateData{this, payload};
-    lv_async_call(async_update_cb, data);
+
+    m_pending_data = payload;
+    scheduleAsync(async_update_cb, this);
     ESP_LOGI(TAG, "Scheduled async update for image %s", m_id.c_str());
 }
 
 void ImageWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        ESP_LOGI(TAG, "Async callback executing for image update (size: %d bytes)", data->data.size());
-        data->widget->updateImage(data->data);
-    } else {
-        ESP_LOGE(TAG, "Invalid async callback data");
+    ImageWidget* widget = static_cast<ImageWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    ESP_LOGI(TAG, "Async callback executing for image update (size: %d bytes)", widget->m_pending_data.size());
+    widget->updateImage(widget->m_pending_data);
 }
 
 void ImageWidget::updateImage(const std::string& data) {

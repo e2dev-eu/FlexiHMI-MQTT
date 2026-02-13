@@ -10,6 +10,7 @@ BarWidget::BarWidget(const std::string& id, int x, int y, int w, int h, cJSON* p
     m_min = 0;
     m_max = 100;
     m_value = 0;
+    m_pending_value = m_value;
     
     // Extract properties
     if (properties) {
@@ -77,6 +78,7 @@ BarWidget::BarWidget(const std::string& id, int x, int y, int w, int h, cJSON* p
 }
 
 BarWidget::~BarWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -96,16 +98,17 @@ void BarWidget::onMqttMessage(const std::string& topic, const std::string& paylo
     if (new_value > m_max) new_value = m_max;
     
     // Schedule async update
-    AsyncUpdateData* data = new AsyncUpdateData{this, new_value};
-    lv_async_call(async_update_cb, data);
+    m_pending_value = new_value;
+    scheduleAsync(async_update_cb, this);
 }
 
 void BarWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateValue(data->value);
+    BarWidget* widget = static_cast<BarWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateValue(widget->m_pending_value);
 }
 
 void BarWidget::updateValue(int value) {

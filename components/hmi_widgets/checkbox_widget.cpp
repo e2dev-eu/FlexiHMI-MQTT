@@ -8,6 +8,7 @@ static const char *TAG = "CheckboxWidget";
 CheckboxWidget::CheckboxWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_checked = false;
+    m_pending_checked = m_checked;
     m_retained = true;
     m_text = "Checkbox";
     
@@ -81,6 +82,7 @@ CheckboxWidget::CheckboxWidget(const std::string& id, int x, int y, int w, int h
 }
 
 CheckboxWidget::~CheckboxWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -124,17 +126,18 @@ void CheckboxWidget::onMqttMessage(const std::string& topic, const std::string& 
     }
     
     if (new_state != m_checked) {
-        AsyncUpdateData* data = new AsyncUpdateData{this, new_state};
-        lv_async_call(async_update_cb, data);
+        m_pending_checked = new_state;
+        scheduleAsync(async_update_cb, this);
     }
 }
 
 void CheckboxWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateState(data->checked);
+    CheckboxWidget* widget = static_cast<CheckboxWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateState(widget->m_pending_checked);
 }
 
 void CheckboxWidget::updateState(bool checked) {

@@ -124,6 +124,7 @@ TabviewWidget::TabviewWidget(const std::string& id, int x, int y, int w, int h, 
 }
 
 TabviewWidget::~TabviewWidget() {
+    cancelAsync(async_tab_update, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -196,19 +197,22 @@ void TabviewWidget::onMqttMessage(const std::string& topic, const std::string& p
         return; // Already on this tab
     }
     
-    // Update tab via LVGL async call
-    auto update_fn = [](void* user_data) {
-        TabviewWidget* widget = static_cast<TabviewWidget*>(user_data);
-        if (widget->m_lvgl_obj && lv_obj_is_valid(widget->m_lvgl_obj)) {
-            widget->m_updating_from_mqtt = true;
-            lv_tabview_set_active(widget->m_lvgl_obj, widget->m_active_tab, LV_ANIM_ON);
-            widget->m_updating_from_mqtt = false;
-            ESP_LOGI(TAG, "Tabview '%s' changed to tab %d via MQTT", widget->m_id.c_str(), widget->m_active_tab);
-        }
-    };
-    
     m_active_tab = new_tab_index;
-    lv_async_call(update_fn, this);
+    scheduleAsync(async_tab_update, this);
+}
+
+void TabviewWidget::async_tab_update(void * user_data) {
+    TabviewWidget* widget = static_cast<TabviewWidget*>(user_data);
+    if (!widget) {
+        return;
+    }
+    widget->markAsyncComplete();
+    if (widget->m_lvgl_obj && lv_obj_is_valid(widget->m_lvgl_obj)) {
+        widget->m_updating_from_mqtt = true;
+        lv_tabview_set_active(widget->m_lvgl_obj, widget->m_active_tab, LV_ANIM_ON);
+        widget->m_updating_from_mqtt = false;
+        ESP_LOGI(TAG, "Tabview '%s' changed to tab %d via MQTT", widget->m_id.c_str(), widget->m_active_tab);
+    }
 }
 
 lv_obj_t* TabviewWidget::getTabByName(const std::string& tab_name) {

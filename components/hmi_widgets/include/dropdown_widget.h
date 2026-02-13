@@ -13,16 +13,12 @@ private:
     static void dropdown_event_cb(lv_event_t* e);
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        DropdownWidget* widget;
-        uint16_t selected;
-    };
-    
     void updateSelection(uint16_t selected);
     
     std::string m_mqtt_topic;
     std::vector<std::string> m_options;
     uint16_t m_selected;
+    uint16_t m_pending_selected = 0;
     bool m_retained;
     bool m_updating_from_mqtt = false;
     std::string m_last_published_payload;  // Track last published payload to ignore echo

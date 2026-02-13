@@ -14,15 +14,11 @@ public:
     void onMqttMessage(const std::string& topic, const std::string& payload) override;
 
 private:
-    struct AsyncUpdateData {
-        LabelWidget* widget;
-        std::string text;
-    };
-    
     static void async_update_cb(void* user_data);
     void updateText(const std::string& text);
     
     std::string m_text;
+    std::string m_pending_text;
     std::string m_format;  // printf-style format string
     std::string m_mqtt_topic;
     uint32_t m_subscription_handle = 0;

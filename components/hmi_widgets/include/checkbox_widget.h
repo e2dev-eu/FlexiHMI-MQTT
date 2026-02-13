@@ -12,16 +12,12 @@ private:
     static void checkbox_event_cb(lv_event_t* e);
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        CheckboxWidget* widget;
-        bool checked;
-    };
-    
     void updateState(bool checked);
     
     std::string m_mqtt_topic;
     std::string m_text;
     bool m_checked;
+    bool m_pending_checked = false;
     bool m_retained;
     bool m_updating_from_mqtt = false;
     uint32_t m_subscription_handle = 0;  // MQTT subscription handle

@@ -9,6 +9,7 @@ static const char *TAG = "LEDWidget";
 LEDWidget::LEDWidget(const std::string& id, int x, int y, int w, int h, cJSON* properties, lv_obj_t* parent) {
     m_id = id;
     m_brightness = 255;
+    m_pending_brightness = m_brightness;
     m_color_on = lv_color_hex(0x00FF00);   // Green
     m_color_off = lv_color_hex(0x808080);  // Gray
     
@@ -72,6 +73,7 @@ LEDWidget::LEDWidget(const std::string& id, int x, int y, int w, int h, cJSON* p
 }
 
 LEDWidget::~LEDWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -95,17 +97,18 @@ void LEDWidget::onMqttMessage(const std::string& topic, const std::string& paylo
         new_brightness = atoi(payload.c_str());
         // uint8_t is automatically clamped to 0-255
     }
-    
-    AsyncUpdateData* data = new AsyncUpdateData{this, new_brightness};
-    lv_async_call(async_update_cb, data);
+
+    m_pending_brightness = new_brightness;
+    scheduleAsync(async_update_cb, this);
 }
 
 void LEDWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateBrightness(data->brightness);
+    LEDWidget* widget = static_cast<LEDWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateBrightness(widget->m_pending_brightness);
 }
 
 void LEDWidget::updateBrightness(uint8_t brightness) {

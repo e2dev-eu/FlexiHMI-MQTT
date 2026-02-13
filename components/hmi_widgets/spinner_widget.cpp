@@ -25,6 +25,8 @@ SpinnerWidget::SpinnerWidget(const std::string& id, int x, int y, int w, int h, 
             }
         }
     }
+
+    m_pending_visible = false;
     
     // Create spinner object
     lv_obj_t* parent_obj = parent ? parent : lv_screen_active();
@@ -55,6 +57,7 @@ SpinnerWidget::SpinnerWidget(const std::string& id, int x, int y, int w, int h, 
 }
 
 SpinnerWidget::~SpinnerWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -74,17 +77,18 @@ void SpinnerWidget::onMqttMessage(const std::string& topic, const std::string& p
         strcasecmp(payload.c_str(), "1") == 0) {
         visible = true;
     }
-    
-    AsyncUpdateData* data = new AsyncUpdateData{this, visible};
-    lv_async_call(async_update_cb, data);
+
+    m_pending_visible = visible;
+    scheduleAsync(async_update_cb, this);
 }
 
 void SpinnerWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateVisibility(data->visible);
+    SpinnerWidget* widget = static_cast<SpinnerWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateVisibility(widget->m_pending_visible);
 }
 
 void SpinnerWidget::updateVisibility(bool visible) {

@@ -11,6 +11,7 @@ ArcWidget::ArcWidget(const std::string& id, int x, int y, int w, int h, cJSON* p
     m_min = 0;
     m_max = 100;
     m_value = 50;
+    m_pending_value = m_value;
     m_retained = true;
     
     // Extract properties
@@ -86,6 +87,7 @@ ArcWidget::ArcWidget(const std::string& id, int x, int y, int w, int h, cJSON* p
 }
 
 ArcWidget::~ArcWidget() {
+    cancelAsync(async_update_cb, this);
     if (m_subscription_handle != 0) {
         MQTTManager::getInstance().unsubscribe(m_subscription_handle);
         m_subscription_handle = 0;
@@ -127,17 +129,18 @@ void ArcWidget::onMqttMessage(const std::string& topic, const std::string& paylo
     if (new_value > m_max) new_value = m_max;
     
     if (new_value != m_value) {
-        AsyncUpdateData* data = new AsyncUpdateData{this, new_value};
-        lv_async_call(async_update_cb, data);
+        m_pending_value = new_value;
+        scheduleAsync(async_update_cb, this);
     }
 }
 
 void ArcWidget::async_update_cb(void* user_data) {
-    AsyncUpdateData* data = static_cast<AsyncUpdateData*>(user_data);
-    if (data && data->widget) {
-        data->widget->updateValue(data->value);
+    ArcWidget* widget = static_cast<ArcWidget*>(user_data);
+    if (!widget) {
+        return;
     }
-    delete data;
+    widget->markAsyncComplete();
+    widget->updateValue(widget->m_pending_value);
 }
 
 void ArcWidget::updateValue(int value) {

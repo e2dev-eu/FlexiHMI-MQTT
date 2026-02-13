@@ -19,6 +19,7 @@ public:
 
 private:
     static void tab_changed_event_cb(lv_event_t* e);
+    static void async_tab_update(void * user_data);
     void onTabChanged(uint32_t tab_index);
     
     std::vector<std::string> m_tab_names;

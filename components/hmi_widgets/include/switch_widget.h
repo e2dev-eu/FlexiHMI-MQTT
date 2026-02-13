@@ -12,15 +12,11 @@ private:
     static void switch_event_cb(lv_event_t* e);
     static void async_update_cb(void* user_data);
     
-    struct AsyncUpdateData {
-        SwitchWidget* widget;
-        bool state;
-    };
-    
     void updateState(bool state);
     
     std::string m_mqtt_topic;
     bool m_state;
+    bool m_pending_state = false;
     bool m_retained;
     bool m_updating_from_mqtt = false;  // Prevent feedback loop
     uint32_t m_subscription_handle = 0;  // MQTT subscription handle
