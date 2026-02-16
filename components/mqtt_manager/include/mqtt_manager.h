@@ -78,6 +78,7 @@ private:
     std::map<SubscriptionHandle, std::string> m_handle_to_topic;  // Reverse lookup
     std::map<std::string, int> m_qos_map; // Store QoS for each topic
     std::string m_chunk_buffer; // Buffer for accumulating chunked messages
+    std::string m_chunk_topic;  // Topic for the current chunked message
     SubscriptionHandle m_next_handle = 1;  // Auto-increment handle
     SemaphoreHandle_t m_mutex = nullptr;
     

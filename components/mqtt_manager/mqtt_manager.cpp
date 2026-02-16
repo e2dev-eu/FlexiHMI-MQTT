@@ -337,6 +337,11 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         if (event->current_data_offset == 0) {
             m_chunk_buffer.clear();
             m_chunk_buffer.reserve(event->total_data_len);
+            m_chunk_topic = topic;
+        }
+
+        if (!topic.empty()) {
+            m_chunk_topic = topic;
         }
         
         std::string payload;
@@ -349,12 +354,15 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
         // Accumulate chunk
         m_chunk_buffer.append(event->data, event->data_len);
 
+        std::string full_topic;
         if (m_chunk_buffer.size() >= static_cast<size_t>(event->total_data_len)) {
-            ESP_LOGI(TAG, "Complete message received on %s: %d bytes", topic.c_str(), m_chunk_buffer.size());
+            full_topic = m_chunk_topic.empty() ? topic : m_chunk_topic;
+            ESP_LOGI(TAG, "Complete message received on %s: %d bytes", full_topic.c_str(), m_chunk_buffer.size());
             payload = m_chunk_buffer;
             m_chunk_buffer.clear();
+            m_chunk_topic.clear();
 
-            auto it = m_subscribers.find(topic);
+            auto it = m_subscribers.find(full_topic);
             if (it != m_subscribers.end()) {
                 subs_copy = it->second;
             }
@@ -371,7 +379,7 @@ void MQTTManager::handleData(esp_mqtt_event_handle_t event) {
             }
 
             for (auto& sub : subs_copy) {
-                sub.callback(topic, payload);
+                sub.callback(full_topic, payload);
             }
         }
     } else {
