@@ -601,7 +601,7 @@
             "w": 250,
             "h": 40,
             "properties": {
-              "options": "Auto\nManual\nEco\nSport",
+              "options": ["Auto", "Manual", "Eco", "Sport"],
               "selected": 0,
               "mqtt_topic": "demo/mode"
             }
