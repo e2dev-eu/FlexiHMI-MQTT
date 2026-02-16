@@ -1582,34 +1582,46 @@ void SettingsUI::performWifiScan() {
     
     // Use async scan to avoid blocking HMI task
     wifi.scanAsync([this](const std::vector<WifiNetworkInfo>& networks, esp_err_t err) {
+        struct WifiScanUiUpdate {
+            SettingsUI* ui;
+            std::vector<WifiAP> aps;
+            bool success;
+        };
+
+        auto* update = new WifiScanUiUpdate{this, {}, err == ESP_OK};
+
         if (err == ESP_OK) {
             ESP_LOGI(TAG, "Found %d WiFi networks", networks.size());
-            
+
             // Convert to WifiAP structure
-            std::vector<WifiAP> aps;
+            update->aps.reserve(networks.size());
             for (const auto& net : networks) {
                 WifiAP ap;
                 ap.ssid = net.ssid;
                 ap.rssi = net.rssi;
                 ap.requires_password = (net.auth_mode != WIFI_AUTH_OPEN);
-                aps.push_back(ap);
-            }
-            
-            // Update UI from LVGL task context
-            updateWifiScanResults(aps);
-            
-            if (m_wifi_radio_conn_state_label) {
-                lv_label_set_text(m_wifi_radio_conn_state_label, "Scan complete");
-                lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0x00FF00), 0);
+                update->aps.push_back(ap);
             }
         } else {
             ESP_LOGE(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
-            
-            if (m_wifi_radio_conn_state_label) {
-                lv_label_set_text(m_wifi_radio_conn_state_label, "Scan failed");
-                lv_obj_set_style_text_color(m_wifi_radio_conn_state_label, lv_color_hex(0xFF0000), 0);
-            }
         }
+
+        lv_async_call([](void* user_data) {
+            auto* data = static_cast<WifiScanUiUpdate*>(user_data);
+            if (data->success) {
+                data->ui->updateWifiScanResults(data->aps);
+                if (data->ui->m_wifi_radio_conn_state_label) {
+                    lv_label_set_text(data->ui->m_wifi_radio_conn_state_label, "Scan complete");
+                    lv_obj_set_style_text_color(data->ui->m_wifi_radio_conn_state_label, lv_color_hex(0x00FF00), 0);
+                }
+            } else {
+                if (data->ui->m_wifi_radio_conn_state_label) {
+                    lv_label_set_text(data->ui->m_wifi_radio_conn_state_label, "Scan failed");
+                    lv_obj_set_style_text_color(data->ui->m_wifi_radio_conn_state_label, lv_color_hex(0xFF0000), 0);
+                }
+            }
+            delete data;
+        }, update);
     }, 20);
 }
 

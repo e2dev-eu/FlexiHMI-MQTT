@@ -1,0 +1,12 @@
+menu "JC1060WP470C_I_W_Y BSP"
+
+config BSP_LCD_DPI_BUFFER_NUMS
+    int "LCD frame buffer count"
+    default 2
+    range 1 3
+
+config BSP_LCD_COLOR_FORMAT_RGB888
+    bool "Use RGB888 panel format"
+    default n
+
+endmenu

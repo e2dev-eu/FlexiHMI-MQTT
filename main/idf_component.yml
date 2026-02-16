@@ -2,9 +2,6 @@ dependencies:
   lvgl/lvgl:
     version: "9.3.*"
     public: true
-  espressif/esp32_p4_function_ev_board:
-    version: "*"
-    public: true
   espressif/esp_hosted:
     version: "*"
     public: true
@@ -13,4 +10,10 @@ dependencies:
     public: true
   espressif/esp_lvgl_adapter:
     version: "0.3.2"
+    public: true
+  espressif/esp_lcd_touch:
+    version: "1.2.1"
+    public: true
+  espressif/esp_lcd_touch_gt911:
+    version: "1.2.0~1"
     public: true

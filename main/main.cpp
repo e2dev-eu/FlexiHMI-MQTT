@@ -44,7 +44,15 @@ static void mqtt_task(void *pvParameters)
 
     // Register status callback to update SettingsUI
     mqtt.setStatusCallback([](bool connected, uint32_t messages_received, uint32_t messages_sent)
-                           { SettingsUI::getInstance().onMqttStatusChanged(connected, messages_received, messages_sent); });
+                           {
+                               auto *data = new std::tuple<bool, uint32_t, uint32_t>(connected, messages_received, messages_sent);
+                               lv_async_call([](void *user_data) {
+                                   auto *payload = static_cast<std::tuple<bool, uint32_t, uint32_t> *>(user_data);
+                                   auto &[is_connected, received, sent] = *payload;
+                                   SettingsUI::getInstance().onMqttStatusChanged(is_connected, received, sent);
+                                   delete payload;
+                               }, data);
+                           });
 
     if (!settings.getUsername().empty())
     {
@@ -220,6 +228,7 @@ extern "C" void app_main_cpp(void)
     // Initialize base UI first (gear icon + placeholder) - shows immediately
     init_base_ui();
 
+#if BSP_CAPS_SDCARD
     // Initialize SD card for image storage
     ESP_LOGI(TAG, "Mounting SD card...");
     esp_err_t ret = bsp_sdcard_mount();
@@ -241,6 +250,9 @@ extern "C" void app_main_cpp(void)
                      ((uint64_t)sdcard->csd.capacity) * sdcard->csd.sector_size / (1024 * 1024));
         }
     }
+#else
+    ESP_LOGW(TAG, "SD card not supported on this BSP");
+#endif
 
     // Initialize network managers (Ethernet and Wi-Fi) - can take time
     init_network_managers();

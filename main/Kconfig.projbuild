@@ -1,0 +1,15 @@
+menu "Board Selection"
+
+choice BSP_BOARD
+    prompt "Target board"
+    default BSP_BOARD_P4_FUNCTION_EV
+
+config BSP_BOARD_P4_FUNCTION_EV
+    bool "ESP32-P4 Function EV Board"
+
+config BSP_BOARD_JC1060WP470C_I_W_Y
+    bool "JC1060WP470C_I_W_Y"
+
+endchoice
+
+endmenu

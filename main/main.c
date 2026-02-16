@@ -38,13 +38,12 @@ void app_main(void)
     ESP_ERROR_CHECK(ethernet_init());
     
     // Initialize display panel using BSP, then register it with esp_lvgl_adapter
-    bsp_display_config_t cfg = {
-        .hdmi_resolution = BSP_HDMI_RES_NONE,
-        .dsi_bus = {
-            .phy_clk_src = 0,  // Let driver choose default clock source
-            .lane_bit_rate_mbps = BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS,
-        }
-    };
+    bsp_display_config_t cfg = {0};
+#ifdef BSP_BOARD_P4_FUNCTION_EV
+    cfg.hdmi_resolution = BSP_HDMI_RES_NONE;
+    cfg.dsi_bus.phy_clk_src = 0;  // Let driver choose default clock source
+    cfg.dsi_bus.lane_bit_rate_mbps = BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS;
+#endif
 
     esp_lv_adapter_tear_avoid_mode_t tear_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_DEFAULT_MIPI_DSI;
     esp_lv_adapter_rotation_t rotation = ESP_LV_ADAPTER_ROTATE_0;

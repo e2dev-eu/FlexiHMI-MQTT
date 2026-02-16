@@ -1,0 +1,4 @@
+description: BSP for JC1060WP470C_I_W_Y
+version: 0.0.1
+dependencies:
+  espressif/esp_lcd_jd9165: "*"
