@@ -55,7 +55,7 @@ Analog-style circular gauges with standardized range properties.
 - Demonstrates consistent property naming across all range-based widgets
 
 #### [image_example.json](image_example.json)
-Image widgets demonstrating SD card and base64 image loading.
+Image widgets demonstrating SD card and base64 QOI image loading.
 
 **Features:**
 - SD card image loading
@@ -125,15 +125,13 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f complete_demo.json
 
 #### Method 1: Using Base64 in Initial Configuration
 
-# Convert to PJPG format
-python3 ../images/convert_to_pjpg.py images/iot.png images/iot.pjpg
 ```bash
-cd examples
-python3 encode_image_to_base64.py images/iot.png
-# This creates images/iot.png.base64.txt
+cd examples/images
+python3 convert.py iot.png iot.qoi
+# This creates iot.qoi and iot.qoi.base64.txt
 ```
 
-**Step 2:** Copy the base64 string (open the .base64.txt file)
+**Step 2:** Copy the base64 string (open the .qoi.base64.txt file)
 
 **Step 3:** Create or modify your JSON config with the base64 data:
 ```json
@@ -148,7 +146,7 @@ python3 encode_image_to_base64.py images/iot.png
       "w": 128,
       "h": 128,
       "properties": {
-        "image_path": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACA...BASE64_DATA_FROM_iot.png.base64.txt...",
+        "image_path": "cW9pZg...BASE64_DATA_FROM_iot.qoi.base64.txt...",
         "mqtt_topic": "demo/image_base64"
       }
     }
@@ -163,66 +161,54 @@ mosquitto_pub -h 192.168.100.200 -t "hmi/config" -f your_config.json
 
 #### Method 2: Sending Base64 via MQTT (Dynamic Updates)
 
-# Convert to PJPG format
-python3 ../images/convert_to_pjpg.py images/logo.png images/logo.pjpg
 ```bash
-cd examples
-python3 encode_image_to_base64.py images/logo.png
-# Creates images/logo.png.base64.txt
+cd examples/images
+python3 convert.py logo.png logo.qoi
+# Creates logo.qoi and logo.qoi.base64.txt
 ```
 
-BASE64_DATA=$(cat images/logo.pjpg.base64.txt)
 ```bash
 # Load base64 data into variable
-BASE64_DATA=$(cat images/logo.png.base64.txt)
+BASE64_DATA=$(cat logo.qoi.base64.txt)
 
 # Send to image widget's MQTT topic
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_DATA"
 ```
 
-BASE64_IOT=$(cat images/iot.pjpg.base64.txt)
 ```bash
 # Display IoT icon
-BASE64_IOT=$(cat images/iot.png.base64.txt)
+BASE64_IOT=$(cat iot.qoi.base64.txt)
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_IOT"
 
-# Display Lena image
-BASE64_LOGO=$(cat images/logo.pjpg.base64.txt)
-
 # Display Logo
-BASE64_LOGO=$(cat images/logo.png.base64.txt)
+BASE64_LOGO=$(cat logo.qoi.base64.txt)
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_LOGO"
 ```
 
 #### Method 3: Batch Processing Multiple Images
 
-**Script to encode multiple images:**
+**Script to convert multiple images:**
 ```bash
 #!/bin/bash
 cd examples/images
-  python3 ../images/convert_to_pjpg.py "$img" "${img%.png}.pjpg"
 for img in *.png *.jpg; do
-  echo "Encoding $img..."
-  python3 ../encode_image_to_base64.py "$img"
+  echo "Converting $img..."
+  python3 convert.py "$img" "${img%.*}.qoi"
 done
 
-echo "All images encoded!"
-ls -lh *.base64.txt
+echo "All images converted!"
+ls -lh *.qoi *.qoi.base64.txt
 ```
 
 **Send multiple images to different widgets:**
 ```bash
 # Define your MQTT broker
-BASE64_IOT=$(cat examples/images/iot.pjpg.base64.txt)
+BASE64_IOT=$(cat examples/images/iot.qoi.base64.txt)
 
 # Send to image widget on demo tab (image_example.json)
-BASE64_IOT=$(cat examples/images/iot.png.base64.txt)
-mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lenna256.pjpg"
-mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/logo.pjpg"
-mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.pjpg"
-mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lenna256.png"
-mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/logo.png"
-mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.png"
+mosquitto_pub -h $BROKER -t "demo/image1" -m "/sdcard/lena.qoi"
+mosquitto_pub -h $BROKER -t "demo/image2" -m "/sdcard/industrial.qoi"
+mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.qoi"
 ```
 
 #### Best Practices for Base64 Images
@@ -233,28 +219,23 @@ mosquitto_pub -h $BROKER -t "demo/image3" -m "/sdcard/iot.png"
    - Large images: 256x256 (< 50 KB)
    - Max recommended: 300x300 (< 100 KB)
 
-2. **Format Selection:**
-   - **PNG:** Best for icons, logos, transparency (larger file size)
-   - **JPEG:** Best for photos, no transparency (smaller file size)
-   - **GIF:** Animated images supported
-
-3. **Optimize Before Encoding:**
+2. **Optimize Before Encoding:**
 ```bash
 # Install ImageMagick if needed
 sudo apt-get install imagemagick
 
 # Resize and optimize
-convert input.jpg -resize 128x128 -quality 85 output.jpg
-python3 encode_image_to_base64.py output.jpg
+convert input.png -resize 128x128 output.png
+python3 convert.py output.png output.qoi
 ```
 
-4. **Testing Your Images:**
+3. **Testing Your Images:**
 ```bash
 # Check encoded file size
-ls -lh images/*.base64.txt
+ls -lh images/*.qoi.base64.txt
 
 # Quick test - display in image widget
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -f images/test.png.base64.txt
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -f images/test.qoi.base64.txt
 ```
 
 #### Troubleshooting Base64 Images
@@ -262,17 +243,17 @@ mosquitto_pub -h 192.168.100.200 -t "demo/image1" -f images/test.png.base64.txt
 **Image not displaying?**
 ```bash
 # 1. Check file size (should be < 100KB for base64)
-ls -lh images/yourimage.png
+ls -lh images/yourimage.qoi
 
 # 2. Verify base64 encoding worked
-head -c 100 images/yourimage.png.base64.txt
+head -c 100 images/yourimage.qoi.base64.txt
 # Should see base64 characters: A-Z, a-z, 0-9, +, /, =
 
 # 3. Test with a known-good image
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/test.jpg"
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/test.qoi"
 
 # 4. Check MQTT message size
-wc -c images/yourimage.png.base64.txt
+wc -c images/yourimage.qoi.base64.txt
 # Should be under 100000 bytes (100KB)
 ```
 
@@ -280,33 +261,31 @@ wc -c images/yourimage.png.base64.txt
 ```bash
 # Option 1: Reduce image resolution
 convert large.png -resize 128x128 small.png
+python3 convert.py small.png small.qoi
 
-# Option 2: Increase JPEG compression
-convert photo.jpg -quality 75 compressed.jpg
-
-# Option 3: Use SD card instead
-cp yourimage.jpg /path/to/sdcard/
-mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/yourimage.jpg"
+# Option 2: Use SD card instead (if available)
+cp yourimage.qoi /path/to/sdcard/
+mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/yourimage.qoi"
 ```
 
 #### Complete Example Workflow
 
 ```bash
-# 1. Navigate to examples directory
-cd /path/to/ESP32P4-MQTT-Panel/examples
+# 1. Navigate to examples/images directory
+cd /path/to/ESP32P4-MQTT-Panel/examples/images
 
 # 2. Prepare your image (resize if needed)
-convert iot.png -resize 128x128 images/iot_small.png
+convert iot.png -resize 128x128 iot_small.png
 
-# 3. Encode to base64
-python3 encode_image_to_base64.py images/iot_small.png
+# 3. Encode to QOI + base64
+python3 convert.py iot_small.png iot_small.qoi
 
 # 4. Verify encoding
-echo "File size: $(wc -c < images/iot_small.png.base64.txt) bytes"
-echo "First 50 chars: $(head -c 50 images/iot_small.png.base64.txt)"
+echo "File size: $(wc -c < iot_small.qoi.base64.txt) bytes"
+echo "First 50 chars: $(head -c 50 iot_small.qoi.base64.txt)"
 
 # 5. Send to device
-BASE64_DATA=$(cat images/iot_small.png.base64.txt)
+BASE64_DATA=$(cat iot_small.qoi.base64.txt)
 mosquitto_pub -h 192.168.100.200 -t "demo/image_base64" -m "$BASE64_DATA"
 
 # 6. Watch serial monitor to confirm
@@ -473,7 +452,7 @@ See `complete_demo.json` for device control:
 - Check SD card is mounted
 - Verify file paths start with `/sdcard/`
 - For base64: ensure data is complete
-- See [IMAGE_WIDGET_README.md](../docs/IMAGE_WIDGET_README.md)
+- See [../../docs/WIDGETS.md](../../docs/WIDGETS.md)
 
 ## Support
 

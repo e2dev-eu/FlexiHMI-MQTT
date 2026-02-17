@@ -618,14 +618,13 @@ mosquitto_pub -h localhost -t "battery/level" -m "85"
 
 ### 14. Image Widget
 
-**Description:** Displays images from SD card storage or base64-encoded data. Supports JPEG, PNG, BMP, and GIF formats. Images can be updated dynamically via MQTT.
+**Description:** Displays QOI images from SD card storage or base64-encoded QOI data. Images can be updated dynamically via MQTT.
 
 **LVGL Component:** `lv_image`
 
 **Implementation Features:**
-- Load images from SD card (`/sdcard/...`) or base64-encoded data
-- JPEG, PNG, BMP, GIF format support (static and animated GIF)
-- ESP32-P4 hardware JPEG decoder acceleration
+- Load images from SD card (`/sdcard/...`) or base64-encoded QOI data
+- QOI format only (path or base64)
 - MQTT-based dynamic image updates with dual loading modes
 - Automatic image scaling to fit widget size
 - Base64 decoding using mbedtls library
@@ -640,40 +639,39 @@ mosquitto_pub -h localhost -t "battery/level" -m "85"
   "w": 300,
   "h": 300,
   "properties": {
-    "image_path": "/sdcard/images/product.pjpg",
+    "image_path": "/sdcard/images/product.qoi",
     "mqtt_topic": "display/product_image"
   }
 }
 ```
 
 **Properties:**
-- `image_path` (string): Initial image - SD card PJPG path OR base64-encoded PJPG data (e.g., "/sdcard/images/logo.pjpg" or base64 string)
+- `image_path` (string): Initial image - SD card QOI path OR base64-encoded QOI data (e.g., "/sdcard/images/logo.qoi" or base64 string)
 - `mqtt_topic` (string, optional): Topic to subscribe for image updates (supports both path and base64)
 
 **MQTT Behavior:**
 - **Subscribes to:** `mqtt_topic`
 - **Expected payload formats:**
-  - **SD card path:** `"/sdcard/images/photo.pjpg"` (string with path)
-  - **Base64 data:** Raw base64-encoded image string (auto-detected, >100 chars)
-- **Behavior:** Automatically detects format and loads image accordingly
-- **Supported formats:** PJPG only (hardware accelerated)
-- **Detection:** Payloads >100 chars with 95%+ base64 characters treated as base64 data
+  - **SD card path:** `"/sdcard/images/photo.qoi"` (string with path)
+  - **Base64 data:** Raw base64-encoded QOI data
+- **Behavior:** Treats payloads starting with `/sdcard/` or `S:/` as file paths; otherwise it is handled as base64 QOI data
+- **Supported formats:** QOI only
 
 **Usage Example:**
 ```bash
 # Change displayed image using SD card path
-mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.pjpg"
+mosquitto_pub -h localhost -t "display/product_image" -m "/sdcard/images/product2.qoi"
 
 # Show logo
-mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.pjpg"
+mosquitto_pub -h localhost -t "display/logo" -m "/sdcard/images/company_logo.qoi"
 
 # Send base64-encoded image (small example, actual images are larger)
-# Use examples/images/convert_to_pjpg.py to encode images
-BASE64_DATA=$(cat image.pjpg.base64.txt)
+# Use examples/images/convert.py to encode images
+BASE64_DATA=$(cat image.qoi.base64.txt)
 mosquitto_pub -h localhost -t "display/dynamic_image" -m "$BASE64_DATA"
 
-# Send base64 directly (PJPG example)
-mosquitto_pub -h localhost -t "gallery/current" -m "X1BKUEdfXw..."
+# Send base64 directly (QOI example)
+mosquitto_pub -h localhost -t "gallery/current" -m "cW9pZg..."
 ```
 
 **SD Card Setup:**
@@ -683,12 +681,10 @@ mosquitto_pub -h localhost -t "gallery/current" -m "X1BKUEdfXw..."
 - Supported image sizes limited by available RAM
 
 **Base64 Usage:**
-- Use `examples/images/convert_to_pjpg.py` to convert images
-- Outputs `.base64.txt` files ready for MQTT transmission
+- Use `examples/images/convert.py` to convert images to QOI
+- Outputs `.qoi` and `.qoi.base64.txt` files ready for MQTT transmission
 - No data URI prefix needed (raw base64 string)
 - Useful for dynamic image updates without SD card writes
-- Detection: Payloads >100 characters with 95%+ base64 chars automatically decoded
-- See `examples/docs/BASE64_IMAGE_TESTING.md` for detailed guide
 
 ---
 

@@ -1,14 +1,14 @@
 # FlexiHMI MQTT
 
-A production-ready, MQTT-controlled dynamic Human-Machine Interface (HMI) system for the ESP32-P4-Function-EV-Board. 
-Features LVGL 9.2, real-time configuration updates, 14 widget types, and hardware-accelerated graphics.
+A production-ready, MQTT-controlled dynamic Human-Machine Interface (HMI) system for the ESP32-P4-Function-EV-Board or JC1060WP470C_I_W_Y.
+Features LVGL 9.3, real-time configuration updates, 14 widget types, and hardware-accelerated graphics.
 
 ## Key Features
 
 - 🎨 **14 Widget Types**: Labels, Buttons, Switches, Sliders, Gauges, Images, and more
 - 🔄 **Dynamic Configuration**: Update entire UI via MQTT JSON messages
 - 📡 **Full MQTT Integration**: Bidirectional control for all interactive widgets
-- 🖼️ **Advanced Image Support**: SD card loading + base64-encoded images over MQTT
+- 🖼️ **Advanced Image Support**: QOI images from SD card (when available) + base64 QOI over MQTT
 - ⚡ **Hardware Acceleration**: ESP32-P4 PPA (Pixel Processing Accelerator) enabled
 - 🎯 **Thread-Safe**: Async callbacks ensure safe LVGL operations
 - 📱 **Touch Support**: Full capacitive touch integration
@@ -16,11 +16,11 @@ Features LVGL 9.2, real-time configuration updates, 14 widget types, and hardwar
 
 ## Hardware
 
-- **Board**: ESP32-P4-Function-EV-Board 1.4
-- **Display**: 1024x600 MIPI DSI display (EK79007 controller)
-- **Touch**: GT911 capacitive touch controller  
-- **Storage**: SD card support for images and assets
-- **Connectivity**: WiFi + ESP32-C6 co-processor via ESP-Hosted
+- **Board options**: ESP32-P4-Function-EV-Board 1.4 or JC1060WP470C_I_W_Y
+- **Display**: 1024x600 MIPI DSI display (EK79007 on P4 EV, JD9165 on JC)
+- **Touch**: GT911 capacitive touch controller
+- **Storage**: SD card support on ESP32-P4-Function-EV-Board only (optional)
+- **Connectivity**: WiFi + ESP32-C6 co-processor via ESP-Hosted (P4 EV default)
 
 ## Supported Widgets
 
@@ -45,8 +45,8 @@ See [docs/WIDGETS.md](docs/WIDGETS.md) for detailed specifications.
 
 ### 1. Hardware Setup
 
-1. Insert SD card (optional, for image widgets)
-2. Connect ESP32-P4-Function-EV-Board via USB
+1. Insert SD card (optional, P4 EV board only)
+2. Connect the board via USB
 3. Ensure ESP32-C6 is properly connected for WiFi
 
 ### 2. Build and Flash
@@ -57,6 +57,15 @@ get_idf
 
 # Build and flash
 idf.py build flash monitor
+```
+
+### Board Selection
+
+Select the target board in menuconfig:
+
+```bash
+idf.py menuconfig
+# Board Selection -> Target board -> ESP32-P4 Function EV Board or JC1060WP470C_I_W_Y
 ```
 
 ### 3. Connect to MQTT
@@ -96,16 +105,13 @@ ESP32P4-MQTT-Panel/
 │   │   ├── gauge_demo.json
 │   │   ├── image_example.json
 │   │   └── ...
-│   ├── docs/                   # Documentation
-│   │   ├── IMAGE_WIDGET_README.md
-│   │   └── BASE64_IMAGE_TESTING.md
-│   └── encode_image_to_base64.py  # Image encoding utility
+│   ├── images/                 # Sample images and conversion utility
+│   │   └── convert.py           # Convert to QOI + base64
 ├── docs/
 │   ├── WIDGETS.md              # Complete widget reference
 │   └── INITIAL_SPEC.md         # Original specification
 └── managed_components/          # ESP-IDF components (auto-downloaded)
-    ├── lvgl__lvgl/             # LVGL 9.2.2
-    ├── espressif__esp32_p4_function_ev_board/
+    ├── lvgl__lvgl/             # LVGL 9.3.x
     └── ...
 ```
 
@@ -146,25 +152,25 @@ mosquitto_pub -h broker -t "hmi/config" -f new_config.json
 # Update individual widget values
 mosquitto_pub -h broker -t "vehicle/speed" -m "85"
 mosquitto_pub -h broker -t "demo/power" -m "true"
-mosquitto_pub -h broker -t "demo/image1" -f image.base64.txt
+mosquitto_pub -h broker -t "demo/image1" -f image.qoi.base64.txt
 ```
 
 ## Advanced Features
 
 ### Image Widget
 
-Load images from SD card or receive base64-encoded images via MQTT (PJPG only):
+Load QOI images from SD card or receive base64-encoded QOI images via MQTT:
 
 ```bash
-# SD card image (PJPG)
-mosquitto_pub -t "demo/image" -m "/sdcard/logo.pjpg"
+# SD card image (QOI, when SD card is available)
+mosquitto_pub -t "demo/image" -m "/sdcard/logo.qoi"
 
-# Base64 image (PJPG)
-python3 examples/images/convert_to_pjpg.py photo.png photo.pjpg
-mosquitto_pub -t "demo/image" -f photo.pjpg.base64.txt
+# Base64 image (QOI)
+python3 examples/images/convert.py photo.png photo.qoi
+mosquitto_pub -t "demo/image" -f photo.qoi.base64.txt
 ```
 
-Runtime supports PJPG only (hardware accelerated). See [examples/docs/IMAGE_WIDGET_README.md](examples/docs/IMAGE_WIDGET_README.md).
+Runtime supports QOI only. Base64 payloads must decode to QOI data.
 
 ### Hardware Acceleration
 
@@ -211,19 +217,19 @@ See [examples/json/README.md](examples/json/README.md) for detailed descriptions
 | `demo/speed` | Update gauge values | `"120"` |
 | `demo/power` | Switch states | `"true"` / `"false"` |
 | `demo/volume` | Slider positions | `"75"` |
-| `demo/image1` | Image data | `/sdcard/pic.pjpg` or base64 |
+| `demo/image1` | Image data | `/sdcard/pic.qoi` or base64 QOI |
 | `demo/command` | Button commands | `"START"` |
 | `demo/mode` | Dropdown selections | `"Auto"` |
 
 ## Display Configuration
 
 - **Resolution**: 1024x600
-- **Controller**: EK79007  
+- **Controller**: EK79007 (P4 EV) / JD9165 (JC)
 - **Interface**: MIPI DSI (2 lanes @ 1000 Mbps)
 - **Color Depth**: 16-bit RGB565
 - **Refresh**: 60Hz with hardware acceleration
 - **Touch**: GT911 (I2C, up to 10-point multitouch)
-- **Backlight**: PWM-controlled via GPIO 26
+- **Backlight**: PWM-controlled via GPIO 26 (P4 EV) or GPIO 23 (JC)
 
 ## Building
 
@@ -260,10 +266,8 @@ CONFIG_LV_DRAW_PPA_BLEND=y
 # MQTT
 CONFIG_MQTT_BUFFER_SIZE=524288         # 512KB buffer
 
-# Images  
-CONFIG_LV_USE_TJPGD=y                 # JPEG (hardware accelerated)
-CONFIG_LV_USE_LODEPNG=y               # PNG
-CONFIG_LV_USE_FS_POSIX=y              # SD card support
+# Images
+CONFIG_LV_USE_FS_POSIX=y              # SD card support (P4 EV board)
 ```
 
 ## Utilities
@@ -271,13 +275,13 @@ CONFIG_LV_USE_FS_POSIX=y              # SD card support
 ### Image Encoding
 
 ```bash
-# Encode image to base64
-cd examples
-./encode_image_to_base64.py image.jpg
+# Encode image to QOI + base64
+cd examples/images
+python3 convert.py image.png image.qoi
 
-# Output saved to image.jpg.base64.txt
+# Output saved to image.qoi.base64.txt
 # Send via MQTT
-mosquitto_pub -t demo/image -f image.jpg.base64.txt
+mosquitto_pub -t demo/image -f image.qoi.base64.txt
 ```
 
 ### Configuration Validation
