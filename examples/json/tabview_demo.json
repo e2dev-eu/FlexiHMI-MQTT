@@ -150,6 +150,19 @@
               "mqtt_payload": "APPLY",
               "color": "#238636"
             }
+          },
+          {
+            "type": "label",
+            "id": "controls_note",
+            "x": 20,
+            "y": 460,
+            "w": 480,
+            "h": 30,
+            "properties": {
+              "text": "Tip: controls publish MQTT values.",
+              "color": "#8B949E",
+              "font_size": 14
+            }
           }
         ],
         "Status": [
@@ -375,6 +388,19 @@
               "mqtt_topic": "demo/loading",
               "color": "#58A6FF"
             }
+          },
+          {
+            "type": "label",
+            "id": "status_note",
+            "x": 20,
+            "y": 420,
+            "w": 480,
+            "h": 30,
+            "properties": {
+              "text": "Status widgets subscribe to MQTT topics.",
+              "color": "#8B949E",
+              "font_size": 14
+            }
           }
         ],
         "RGB Lighting": [
@@ -552,6 +578,19 @@
               "mqtt_payload": "RESET",
               "color": "#DA3633"
             }
+          },
+          {
+            "type": "label",
+            "id": "rgb_note",
+            "x": 20,
+            "y": 410,
+            "w": 480,
+            "h": 30,
+            "properties": {
+              "text": "RGB sliders publish to demo/rgb.",
+              "color": "#8B949E",
+              "font_size": 14
+            }
           }
         ],
         "Images": [
@@ -565,6 +604,31 @@
             "properties": {
               "text": "IMAGE DISPLAY",
               "color": "#58A6FF"
+            }
+          },
+          {
+            "type": "label",
+            "id": "images_note",
+            "x": 20,
+            "y": 60,
+            "w": 480,
+            "h": 30,
+            "properties": {
+              "text": "Use /sdcard/*.qoi (lena/pc/gpu) or MQTT base64 payloads.",
+              "color": "#8B949E",
+              "font_size": 14
+            }
+          },
+          {
+            "type": "image",
+            "id": "image",
+            "x": 15,
+            "y": 0,
+            "w": 500,
+            "h": 500,
+            "properties": {
+              "image_path": "/sdcard/lena.qoi",
+              "mqtt_topic": "demo/image"
             }
           }
         ]

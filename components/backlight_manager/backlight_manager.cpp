@@ -1,9 +1,18 @@
 #include "backlight_manager.h"
-#include "bsp/display.h"
+#include "sdkconfig.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include <cmath>
 
 static const char* TAG = "BacklightManager";
+
+#if CONFIG_BSP_BOARD_JC1060WP470C_I_W_Y
+extern "C" esp_err_t jc_bsp_display_brightness_set(int brightness_percent);
+#define panel_display_brightness_set jc_bsp_display_brightness_set
+#else
+extern "C" esp_err_t bsp_display_brightness_set(int brightness_percent);
+#define panel_display_brightness_set bsp_display_brightness_set
+#endif
 
 BacklightManager& BacklightManager::getInstance() {
     static BacklightManager instance;
@@ -186,7 +195,7 @@ void BacklightManager::fadeTimerCallback(void* arg) {
         xSemaphoreGive(manager->m_mutex);
         
         // Update brightness outside mutex
-        bsp_display_brightness_set(manager->m_current_brightness);
+        panel_display_brightness_set(manager->m_current_brightness);
         return;
     }
     
@@ -201,7 +210,7 @@ void BacklightManager::fadeTimerCallback(void* arg) {
     xSemaphoreGive(manager->m_mutex);
     
     // Update brightness outside mutex
-    bsp_display_brightness_set(current_brightness);
+    panel_display_brightness_set(current_brightness);
 }
 
 void BacklightManager::startDimming() {

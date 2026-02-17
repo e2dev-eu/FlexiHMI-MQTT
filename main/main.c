@@ -3,7 +3,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include "bsp/esp-bsp.h"
+#include "sdkconfig.h"
 #include "bsp/display.h"
 #include "bsp/touch.h"
 #include "ethernet_init.h"
@@ -12,6 +12,16 @@
 static const char *TAG = "main";
 
 static lv_indev_t *s_touch_indev = NULL;
+
+#if CONFIG_BSP_BOARD_JC1060WP470C_I_W_Y
+#define panel_display_new_with_handles jc_bsp_display_new_with_handles
+#define panel_display_backlight_on jc_bsp_display_backlight_on
+#define panel_touch_new jc_bsp_touch_new
+#else
+#define panel_display_new_with_handles bsp_display_new_with_handles
+#define panel_display_backlight_on bsp_display_backlight_on
+#define panel_touch_new bsp_touch_new
+#endif
 
 lv_indev_t *app_get_touch_indev(void)
 {
@@ -39,9 +49,9 @@ void app_main(void)
     
     // Initialize display panel using BSP, then register it with esp_lvgl_adapter
     bsp_display_config_t cfg = {0};
-#ifdef BSP_BOARD_P4_FUNCTION_EV
+#if !CONFIG_BSP_BOARD_JC1060WP470C_I_W_Y
     cfg.hdmi_resolution = BSP_HDMI_RES_NONE;
-    cfg.dsi_bus.phy_clk_src = 0;  // Let driver choose default clock source
+    cfg.dsi_bus.phy_clk_src = 0;  // Let driver choose default clock source.
     cfg.dsi_bus.lane_bit_rate_mbps = BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS;
 #endif
 
@@ -53,12 +63,12 @@ void app_main(void)
     }
 
     bsp_lcd_handles_t handles = {0};
-    ESP_ERROR_CHECK(bsp_display_new_with_handles(&cfg, &handles));
+    ESP_ERROR_CHECK(panel_display_new_with_handles(&cfg, &handles));
     esp_err_t disp_ret = esp_lcd_panel_disp_on_off(handles.panel, true);
     if (disp_ret != ESP_OK && disp_ret != ESP_ERR_NOT_SUPPORTED) {
         ESP_ERROR_CHECK(disp_ret);
     }
-    bsp_display_backlight_on();
+    panel_display_backlight_on();
 
     esp_lv_adapter_config_t lv_cfg = ESP_LV_ADAPTER_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(esp_lv_adapter_init(&lv_cfg));
@@ -79,7 +89,7 @@ void app_main(void)
 
     esp_lcd_touch_handle_t touch_handle = NULL;
     bsp_touch_config_t touch_cfg = {0};
-    if (bsp_touch_new(&touch_cfg, &touch_handle) == ESP_OK) {
+    if (panel_touch_new(&touch_cfg, &touch_handle) == ESP_OK) {
         esp_lv_adapter_touch_config_t lv_touch_cfg = ESP_LV_ADAPTER_TOUCH_DEFAULT_CONFIG(disp, touch_handle);
         s_touch_indev = esp_lv_adapter_register_touch(&lv_touch_cfg);
         if (s_touch_indev == NULL) {

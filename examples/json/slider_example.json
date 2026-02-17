@@ -15,6 +15,20 @@
       }
     },
     {
+      "id": "title_note",
+      "type": "label",
+      "x": 10,
+      "y": 50,
+      "w": 1004,
+      "h": 20,
+      "properties": {
+        "text": "Slider publishes to demo/slider; bar mirrors it.",
+        "align": "center",
+        "font_size": 14,
+        "color": "#888888"
+      }
+    },
+    {
       "id": "slider1",
       "type": "slider",
       "x": 50,

@@ -110,7 +110,7 @@ static esp_err_t bsp_enable_dsi_phy_power(void)
     return ESP_OK;
 }
 
-esp_err_t bsp_display_brightness_init(void)
+esp_err_t jc_bsp_display_brightness_init(void)
 {
     const ledc_channel_config_t lcd_channel = {
         .gpio_num = BSP_LCD_BACKLIGHT,
@@ -134,7 +134,7 @@ esp_err_t bsp_display_brightness_init(void)
     return ESP_OK;
 }
 
-esp_err_t bsp_display_brightness_set(int brightness_percent)
+esp_err_t jc_bsp_display_brightness_set(int brightness_percent)
 {
     if (brightness_percent > 100) {
         brightness_percent = 100;
@@ -149,32 +149,32 @@ esp_err_t bsp_display_brightness_set(int brightness_percent)
     return ESP_OK;
 }
 
-esp_err_t bsp_display_backlight_on(void)
+esp_err_t jc_bsp_display_backlight_on(void)
 {
-    return bsp_display_brightness_set(100);
+    return jc_bsp_display_brightness_set(100);
 }
 
-esp_err_t bsp_display_backlight_off(void)
+esp_err_t jc_bsp_display_backlight_off(void)
 {
-    return bsp_display_brightness_set(0);
+    return jc_bsp_display_brightness_set(0);
 }
 
-esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_handle_t *ret_panel, esp_lcd_panel_io_handle_t *ret_io)
+esp_err_t jc_bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_handle_t *ret_panel, esp_lcd_panel_io_handle_t *ret_io)
 {
     bsp_lcd_handles_t handles = {0};
-    ESP_RETURN_ON_ERROR(bsp_display_new_with_handles(config, &handles), TAG, "Display init failed");
+    ESP_RETURN_ON_ERROR(jc_bsp_display_new_with_handles(config, &handles), TAG, "Display init failed");
 
     *ret_panel = handles.panel;
     *ret_io = handles.io;
     return ESP_OK;
 }
 
-esp_err_t bsp_display_new_with_handles(const bsp_display_config_t *config, bsp_lcd_handles_t *ret_handles)
+esp_err_t jc_bsp_display_new_with_handles(const bsp_display_config_t *config, bsp_lcd_handles_t *ret_handles)
 {
     (void)config;
     esp_err_t ret = ESP_OK;
 
-    ESP_RETURN_ON_ERROR(bsp_display_brightness_init(), TAG, "Brightness init failed");
+    ESP_RETURN_ON_ERROR(jc_bsp_display_brightness_init(), TAG, "Brightness init failed");
     ESP_RETURN_ON_ERROR(bsp_enable_dsi_phy_power(), TAG, "DSI PHY power failed");
 
     esp_lcd_dsi_bus_handle_t mipi_dsi_bus = NULL;
@@ -255,7 +255,7 @@ err:
     return ret;
 }
 
-esp_err_t bsp_touch_new(const bsp_touch_config_t *config, esp_lcd_touch_handle_t *ret_touch)
+esp_err_t jc_bsp_touch_new(const bsp_touch_config_t *config, esp_lcd_touch_handle_t *ret_touch)
 {
     (void)config;
     ESP_RETURN_ON_ERROR(bsp_i2c_init(), TAG, "I2C init failed");

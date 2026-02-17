@@ -9,4 +9,11 @@ config BSP_LCD_COLOR_FORMAT_RGB888
     bool "Use RGB888 panel format"
     default n
 
+config BSP_LCD_SKIP_READ_ID
+    bool "Skip JD9165 panel ID read"
+    default y
+    help
+        Skip the LCD ID read during JD9165 init. Some boards/panels do not
+        respond to read commands and can stall the DSI bus.
+
 endmenu

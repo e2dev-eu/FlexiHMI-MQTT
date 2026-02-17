@@ -66,6 +66,19 @@
               }
             },
             {
+              "type": "label",
+              "id": "left_note",
+              "x": 10,
+              "y": 80,
+              "w": 300,
+              "h": 18,
+              "properties": {
+                "text": "Controls publish MQTT values.",
+                "color": "#8B949E",
+                "font_size": 12
+              }
+            },
+            {
               "type": "slider",
               "id": "volume",
               "x": 10,
@@ -308,6 +321,19 @@
             },
             {
               "type": "label",
+              "id": "middle_note",
+              "x": 10,
+              "y": 332,
+              "w": 300,
+              "h": 18,
+              "properties": {
+                "text": "Status widgets subscribe to MQTT.",
+                "color": "#8B949E",
+                "font_size": 12
+              }
+            },
+            {
+              "type": "label",
               "id": "led_status_label",
               "x": 10,
               "y": 350,
@@ -459,6 +485,19 @@
               "properties": {
                 "text": "RGB Power",
                 "color": "#C9D1D9"
+              }
+            },
+            {
+              "type": "label",
+              "id": "right_note",
+              "x": 10,
+              "y": 80,
+              "w": 290,
+              "h": 18,
+              "properties": {
+                "text": "RGB sliders publish MQTT values.",
+                "color": "#8B949E",
+                "font_size": 12
               }
             },
             {

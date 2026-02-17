@@ -47,9 +47,20 @@ TabviewWidget::TabviewWidget(const std::string& id, int x, int y, int w, int h, 
     lv_obj_set_pos(m_lvgl_obj, x, y);
     lv_obj_set_size(m_lvgl_obj, w, h);
     
+    bool tab_scrollable = true;
+    cJSON* scrollable = cJSON_GetObjectItem(properties, "scrollable");
+    if (scrollable && cJSON_IsBool(scrollable)) {
+        tab_scrollable = cJSON_IsTrue(scrollable);
+    }
+
     // Add tabs and store references
     for (const auto& tab_name : m_tab_names) {
         lv_obj_t* tab = lv_tabview_add_tab(m_lvgl_obj, tab_name.c_str());
+        if (!tab_scrollable) {
+            // Disable scrolling on tab content to avoid edge scrollbars.
+            lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_scrollbar_mode(tab, LV_SCROLLBAR_MODE_OFF);
+        }
         m_tab_objects[tab_name] = tab;
         ESP_LOGI(TAG, "Added tab: %s", tab_name.c_str());
     }

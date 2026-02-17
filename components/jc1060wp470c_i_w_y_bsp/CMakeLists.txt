@@ -7,5 +7,5 @@ endif()
 idf_component_register(
     SRCS "src/jc1060wp470c_i_w_y_bsp.c"
     INCLUDE_DIRS "include"
-    REQUIRES ${REQ} esp_lcd espressif__esp_lcd_touch espressif__esp_lcd_touch_gt911 esp_lcd_jd9165
+    REQUIRES ${REQ} esp_lcd espressif__esp_lcd_touch espressif__esp_lcd_touch_gt911 espressif__esp_lcd_jd9165
 )

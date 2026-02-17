@@ -11,6 +11,7 @@
       "properties": {
         "tabs": ["Gauges", "Sliders & Bars", "Switches", "Controls", "Images"],
         "active_tab": 0,
+        "scrollable": false,
         "bg_color": "#1E1E1E",
         "tab_bg_color": "#0D1117",
         "active_tab_color": "#58A6FF"
@@ -20,12 +21,12 @@
           {
             "type": "label",
             "id": "gauges_title",
-            "x": 10,
-            "y": 10,
-            "w": 464,
+            "x": 20,
+            "y": 0,
+            "w": 980,
             "h": 30,
             "properties": {
-              "text": "Interactive Gauge Demonstration",
+              "text": "Performance Dashboard",
               "color": "#58A6FF",
               "font_size": 18
             }
@@ -33,10 +34,10 @@
           {
             "type": "gauge",
             "id": "speed_gauge",
-            "x": 50,
-            "y": 60,
-            "w": 200,
-            "h": 200,
+            "x": 20,
+            "y": 50,
+            "w": 260,
+            "h": 260,
             "properties": {
               "min": 0,
               "max": 200,
@@ -47,9 +48,9 @@
           {
             "type": "label",
             "id": "speed_label",
-            "x": 50,
-            "y": 270,
-            "w": 200,
+            "x": 20,
+            "y": 300,
+            "w": 260,
             "h": 25,
             "properties": {
               "text": "Speed: 0 km/h",
@@ -61,10 +62,10 @@
           {
             "type": "gauge",
             "id": "temp_gauge",
-            "x": 280,
-            "y": 60,
-            "w": 200,
-            "h": 200,
+            "x": 362,
+            "y": 50,
+            "w": 260,
+            "h": 260,
             "properties": {
               "min": -20,
               "max": 120,
@@ -75,9 +76,9 @@
           {
             "type": "label",
             "id": "temp_label",
-            "x": 280,
-            "y": 270,
-            "w": 200,
+            "x": 362,
+            "y": 300,
+            "w": 260,
             "h": 25,
             "properties": {
               "text": "Temp: 20 °C",
@@ -87,23 +88,62 @@
             }
           },
           {
+            "type": "gauge",
+            "id": "rpm_gauge",
+            "x": 704,
+            "y": 50,
+            "w": 260,
+            "h": 260,
+            "properties": {
+              "min": 0,
+              "max": 8000,
+              "value": 0,
+              "mqtt_topic": "demo/rpm"
+            }
+          },
+          {
+            "type": "label",
+            "id": "rpm_label",
+            "x": 704,
+            "y": 300,
+            "w": 260,
+            "h": 25,
+            "properties": {
+              "text": "RPM: 0",
+              "align": "center",
+              "mqtt_topic": "demo/rpm",
+              "format": "RPM: %s"
+            }
+          },
+          {
             "type": "label",
             "id": "control_label",
             "x": 20,
-            "y": 310,
-            "w": 460,
+            "y": 345,
+            "w": 980,
             "h": 25,
             "properties": {
-              "text": "Controls:",
+              "text": "Controls",
               "color": "#AAAAAA"
+            }
+          },
+          {
+            "type": "label",
+            "id": "speed_ctrl_label",
+            "x": 20,
+            "y": 380,
+            "w": 120,
+            "h": 25,
+            "properties": {
+              "text": "Speed"
             }
           },
           {
             "type": "slider",
             "id": "speed_slider",
-            "x": 20,
-            "y": 345,
-            "w": 400,
+            "x": 170,
+            "y": 385,
+            "w": 680,
             "h": 20,
             "properties": {
               "min": 0,
@@ -114,22 +154,21 @@
           },
           {
             "type": "label",
-            "id": "speed_slider_label",
-            "x": 430,
-            "y": 340,
-            "w": 50,
-            "h": 30,
+            "id": "temp_ctrl_label",
+            "x": 20,
+            "y": 420,
+            "w": 120,
+            "h": 25,
             "properties": {
-              "text": "0",
-              "mqtt_topic": "demo/speed"
+              "text": "Temp"
             }
           },
           {
             "type": "slider",
             "id": "temp_slider",
-            "x": 20,
-            "y": 390,
-            "w": 400,
+            "x": 170,
+            "y": 425,
+            "w": 680,
             "h": 20,
             "properties": {
               "min": -20,
@@ -140,14 +179,27 @@
           },
           {
             "type": "label",
-            "id": "temp_slider_label",
-            "x": 430,
-            "y": 385,
-            "w": 50,
-            "h": 30,
+            "id": "rpm_ctrl_label",
+            "x": 20,
+            "y": 460,
+            "w": 120,
+            "h": 25,
             "properties": {
-              "text": "20",
-              "mqtt_topic": "demo/temperature"
+              "text": "RPM"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "rpm_slider",
+            "x": 170,
+            "y": 465,
+            "w": 680,
+            "h": 20,
+            "properties": {
+              "min": 0,
+              "max": 8000,
+              "value": 0,
+              "mqtt_topic": "demo/rpm"
             }
           }
         ],
@@ -155,33 +207,45 @@
           {
             "type": "label",
             "id": "sliders_title",
-            "x": 10,
-            "y": 10,
-            "w": 464,
+            "x": 20,
+            "y": 0,
+            "w": 980,
             "h": 30,
             "properties": {
-              "text": "Sliders, Bars & Arcs",
+              "text": "Audio + System Controls",
               "color": "#58A6FF",
               "font_size": 18
             }
           },
           {
             "type": "label",
-            "id": "slider1_label",
-            "x": 20,
+            "id": "audio_section",
+            "x": 40,
             "y": 60,
+            "w": 440,
+            "h": 25,
+            "properties": {
+              "text": "Audio",
+              "color": "#AAAAAA"
+            }
+          },
+          {
+            "type": "label",
+            "id": "slider1_label",
+            "x": 40,
+            "y": 95,
             "w": 120,
             "h": 25,
             "properties": {
-              "text": "Volume:"
+              "text": "Volume"
             }
           },
           {
             "type": "slider",
             "id": "volume_slider",
-            "x": 150,
-            "y": 65,
-            "w": 250,
+            "x": 170,
+            "y": 100,
+            "w": 300,
             "h": 20,
             "properties": {
               "min": 0,
@@ -191,24 +255,12 @@
             }
           },
           {
-            "type": "label",
-            "id": "volume_value",
-            "x": 410,
-            "y": 60,
-            "w": 50,
-            "h": 25,
-            "properties": {
-              "text": "50",
-              "mqtt_topic": "demo/volume"
-            }
-          },
-          {
             "type": "bar",
             "id": "volume_bar",
-            "x": 150,
-            "y": 95,
-            "w": 250,
-            "h": 20,
+            "x": 170,
+            "y": 130,
+            "w": 300,
+            "h": 18,
             "properties": {
               "min": 0,
               "max": 100,
@@ -219,20 +271,20 @@
           {
             "type": "label",
             "id": "brightness_label",
-            "x": 20,
-            "y": 140,
+            "x": 40,
+            "y": 170,
             "w": 120,
             "h": 25,
             "properties": {
-              "text": "Brightness:"
+              "text": "Brightness"
             }
           },
           {
             "type": "slider",
             "id": "brightness_slider",
-            "x": 150,
-            "y": 145,
-            "w": 250,
+            "x": 170,
+            "y": 175,
+            "w": 300,
             "h": 20,
             "properties": {
               "min": 0,
@@ -242,24 +294,12 @@
             }
           },
           {
-            "type": "label",
-            "id": "brightness_value",
-            "x": 410,
-            "y": 140,
-            "w": 50,
-            "h": 25,
-            "properties": {
-              "text": "75",
-              "mqtt_topic": "demo/brightness"
-            }
-          },
-          {
             "type": "bar",
             "id": "brightness_bar",
-            "x": 150,
-            "y": 175,
-            "w": 250,
-            "h": 20,
+            "x": 170,
+            "y": 205,
+            "w": 300,
+            "h": 18,
             "properties": {
               "min": 0,
               "max": 100,
@@ -270,10 +310,10 @@
           {
             "type": "arc",
             "id": "volume_arc",
-            "x": 50,
-            "y": 230,
-            "w": 150,
-            "h": 150,
+            "x": 140,
+            "y": 250,
+            "w": 220,
+            "h": 220,
             "properties": {
               "min": 0,
               "max": 100,
@@ -284,38 +324,114 @@
           {
             "type": "label",
             "id": "vol_arc_label",
-            "x": 50,
-            "y": 390,
-            "w": 150,
+            "x": 140,
+            "y": 475,
+            "w": 220,
             "h": 25,
             "properties": {
-              "text": "Volume Arc",
+              "text": "Master Volume",
               "align": "center"
             }
           },
           {
-            "type": "arc",
-            "id": "brightness_arc",
-            "x": 280,
-            "y": 230,
-            "w": 150,
-            "h": 150,
+            "type": "label",
+            "id": "system_section",
+            "x": 540,
+            "y": 60,
+            "w": 440,
+            "h": 25,
             "properties": {
-              "min": 0,
-              "max": 100,
-              "value": 75,
-              "mqtt_topic": "demo/brightness"
+              "text": "System",
+              "color": "#AAAAAA"
             }
           },
           {
             "type": "label",
-            "id": "bright_arc_label",
-            "x": 280,
-            "y": 390,
-            "w": 150,
+            "id": "fan_label",
+            "x": 540,
+            "y": 95,
+            "w": 120,
             "h": 25,
             "properties": {
-              "text": "Brightness Arc",
+              "text": "Fan Speed"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "fan_slider",
+            "x": 670,
+            "y": 100,
+            "w": 260,
+            "h": 20,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 40,
+              "mqtt_topic": "demo/fan"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "fan_bar",
+            "x": 670,
+            "y": 130,
+            "w": 260,
+            "h": 18,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 40,
+              "mqtt_topic": "demo/fan"
+            }
+          },
+          {
+            "type": "label",
+            "id": "load_label",
+            "x": 540,
+            "y": 170,
+            "w": 120,
+            "h": 25,
+            "properties": {
+              "text": "CPU Load"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "load_bar",
+            "x": 670,
+            "y": 175,
+            "w": 260,
+            "h": 18,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 35,
+              "mqtt_topic": "demo/load"
+            }
+          },
+          {
+            "type": "arc",
+            "id": "load_arc",
+            "x": 600,
+            "y": 250,
+            "w": 220,
+            "h": 220,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 35,
+              "mqtt_topic": "demo/load"
+            }
+          },
+          {
+            "type": "label",
+            "id": "load_arc_label",
+            "x": 600,
+            "y": 475,
+            "w": 220,
+            "h": 25,
+            "properties": {
+              "text": "System Load",
               "align": "center"
             }
           }
@@ -324,21 +440,34 @@
           {
             "type": "label",
             "id": "switches_title",
-            "x": 10,
-            "y": 10,
-            "w": 464,
+            "x": 20,
+            "y": 0,
+            "w": 980,
             "h": 30,
             "properties": {
-              "text": "Switches, LEDs & Checkboxes",
+              "text": "Switches + Status",
               "color": "#58A6FF",
-              "font_size": 18
+              "font_size": 20
+            }
+          },
+          {
+            "type": "label",
+            "id": "switches_left",
+            "x": 40,
+            "y": 60,
+            "w": 420,
+            "h": 25,
+            "properties": {
+              "text": "Connectivity",
+              "color": "#AAAAAA",
+              "font_size": 16
             }
           },
           {
             "type": "switch",
             "id": "power_switch",
-            "x": 50,
-            "y": 60,
+            "x": 40,
+            "y": 95,
             "w": 80,
             "h": 40,
             "properties": {
@@ -349,19 +478,20 @@
           {
             "type": "label",
             "id": "power_label",
-            "x": 150,
-            "y": 65,
-            "w": 100,
+            "x": 140,
+            "y": 105,
+            "w": 140,
             "h": 30,
             "properties": {
-              "text": "Power"
+              "text": "Power",
+              "font_size": 16
             }
           },
           {
             "type": "led",
             "id": "power_led",
-            "x": 280,
-            "y": 60,
+            "x": 320,
+            "y": 95,
             "w": 40,
             "h": 40,
             "properties": {
@@ -374,8 +504,8 @@
           {
             "type": "switch",
             "id": "wifi_switch",
-            "x": 50,
-            "y": 120,
+            "x": 40,
+            "y": 150,
             "w": 80,
             "h": 40,
             "properties": {
@@ -386,19 +516,20 @@
           {
             "type": "label",
             "id": "wifi_label",
-            "x": 150,
-            "y": 125,
-            "w": 100,
+            "x": 140,
+            "y": 160,
+            "w": 140,
             "h": 30,
             "properties": {
-              "text": "WiFi"
+              "text": "WiFi",
+              "font_size": 16
             }
           },
           {
             "type": "led",
             "id": "wifi_led",
-            "x": 280,
-            "y": 120,
+            "x": 320,
+            "y": 150,
             "w": 40,
             "h": 40,
             "properties": {
@@ -411,8 +542,8 @@
           {
             "type": "switch",
             "id": "bt_switch",
-            "x": 50,
-            "y": 180,
+            "x": 40,
+            "y": 205,
             "w": 80,
             "h": 40,
             "properties": {
@@ -423,19 +554,20 @@
           {
             "type": "label",
             "id": "bt_label",
-            "x": 150,
-            "y": 185,
-            "w": 100,
+            "x": 140,
+            "y": 215,
+            "w": 140,
             "h": 30,
             "properties": {
-              "text": "Bluetooth"
+              "text": "Bluetooth",
+              "font_size": 16
             }
           },
           {
             "type": "led",
             "id": "bt_led",
-            "x": 280,
-            "y": 180,
+            "x": 320,
+            "y": 205,
             "w": 40,
             "h": 40,
             "properties": {
@@ -446,54 +578,289 @@
             }
           },
           {
+            "type": "switch",
+            "id": "eth_switch",
+            "x": 40,
+            "y": 260,
+            "w": 80,
+            "h": 40,
+            "properties": {
+              "state": true,
+              "mqtt_topic": "demo/ethernet"
+            }
+          },
+          {
             "type": "label",
-            "id": "checkbox_section",
-            "x": 50,
-            "y": 250,
-            "w": 400,
+            "id": "eth_label",
+            "x": 140,
+            "y": 270,
+            "w": 140,
             "h": 30,
             "properties": {
-              "text": "Checkboxes:",
-              "color": "#AAAAAA"
+              "text": "Ethernet",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "led",
+            "id": "eth_led",
+            "x": 320,
+            "y": 260,
+            "w": 40,
+            "h": 40,
+            "properties": {
+              "state": true,
+              "mqtt_topic": "demo/ethernet",
+              "color_on": "#4CAF50",
+              "color_off": "#555555"
+            }
+          },
+          {
+            "type": "label",
+            "id": "switches_right",
+            "x": 540,
+            "y": 60,
+            "w": 420,
+            "h": 25,
+            "properties": {
+              "text": "System",
+              "color": "#AAAAAA",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "switch",
+            "id": "lights_switch",
+            "x": 540,
+            "y": 95,
+            "w": 80,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/lights"
+            }
+          },
+          {
+            "type": "label",
+            "id": "lights_label",
+            "x": 640,
+            "y": 105,
+            "w": 140,
+            "h": 30,
+            "properties": {
+              "text": "Lights",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "led",
+            "id": "lights_led",
+            "x": 820,
+            "y": 95,
+            "w": 40,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/lights",
+              "color_on": "#FFEB3B",
+              "color_off": "#555555"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "alarm_switch",
+            "x": 540,
+            "y": 150,
+            "w": 80,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/alarm"
+            }
+          },
+          {
+            "type": "label",
+            "id": "alarm_label",
+            "x": 640,
+            "y": 160,
+            "w": 140,
+            "h": 30,
+            "properties": {
+              "text": "Alarm",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "led",
+            "id": "alarm_led",
+            "x": 820,
+            "y": 150,
+            "w": 40,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/alarm",
+              "color_on": "#F44336",
+              "color_off": "#555555"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "fan_switch",
+            "x": 540,
+            "y": 205,
+            "w": 80,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/fan_enable"
+            }
+          },
+          {
+            "type": "label",
+            "id": "fan_label",
+            "x": 640,
+            "y": 215,
+            "w": 140,
+            "h": 30,
+            "properties": {
+              "text": "Cooling",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "led",
+            "id": "fan_led",
+            "x": 820,
+            "y": 205,
+            "w": 40,
+            "h": 40,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "demo/fan_enable",
+              "color_on": "#00BCD4",
+              "color_off": "#555555"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "auto_switch",
+            "x": 540,
+            "y": 260,
+            "w": 80,
+            "h": 40,
+            "properties": {
+              "state": true,
+              "mqtt_topic": "demo/auto"
+            }
+          },
+          {
+            "type": "label",
+            "id": "auto_label",
+            "x": 640,
+            "y": 270,
+            "w": 140,
+            "h": 30,
+            "properties": {
+              "text": "Auto Mode",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "led",
+            "id": "auto_led",
+            "x": 820,
+            "y": 260,
+            "w": 40,
+            "h": 40,
+            "properties": {
+              "state": true,
+              "mqtt_topic": "demo/auto",
+              "color_on": "#8BC34A",
+              "color_off": "#555555"
+            }
+          },
+          {
+            "type": "label",
+            "id": "checkbox_section",
+            "x": 40,
+            "y": 330,
+            "w": 940,
+            "h": 30,
+            "properties": {
+              "text": "Preferences",
+              "color": "#AAAAAA",
+              "font_size": 16
             }
           },
           {
             "type": "checkbox",
             "id": "check1",
-            "x": 50,
-            "y": 290,
-            "w": 300,
+            "x": 40,
+            "y": 370,
+            "w": 360,
             "h": 35,
             "properties": {
               "text": "Enable Notifications",
               "checked": false,
-              "mqtt_topic": "demo/notifications"
+              "mqtt_topic": "demo/notifications",
+              "font_size": 16
             }
           },
           {
             "type": "checkbox",
             "id": "check2",
-            "x": 50,
-            "y": 335,
-            "w": 300,
+            "x": 40,
+            "y": 415,
+            "w": 360,
             "h": 35,
             "properties": {
               "text": "Auto Update",
               "checked": true,
-              "mqtt_topic": "demo/autoupdate"
+              "mqtt_topic": "demo/autoupdate",
+              "font_size": 16
             }
           },
           {
             "type": "checkbox",
             "id": "check3",
-            "x": 50,
-            "y": 380,
-            "w": 300,
+            "x": 40,
+            "y": 460,
+            "w": 360,
             "h": 35,
             "properties": {
               "text": "Dark Mode",
               "checked": false,
-              "mqtt_topic": "demo/darkmode"
+              "mqtt_topic": "demo/darkmode",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "checkbox",
+            "id": "check4",
+            "x": 540,
+            "y": 370,
+            "w": 360,
+            "h": 35,
+            "properties": {
+              "text": "Telemetry Upload",
+              "checked": true,
+              "mqtt_topic": "demo/telemetry",
+              "font_size": 16
+            }
+          },
+          {
+            "type": "checkbox",
+            "id": "check5",
+            "x": 540,
+            "y": 415,
+            "w": 360,
+            "h": 35,
+            "properties": {
+              "text": "Enable Alerts",
+              "checked": true,
+              "mqtt_topic": "demo/alerts",
+              "font_size": 16
             }
           }
         ],
@@ -501,9 +868,9 @@
           {
             "type": "label",
             "id": "controls_title",
-            "x": 10,
-            "y": 10,
-            "w": 464,
+            "x": 20,
+            "y": 0,
+            "w": 980,
             "h": 30,
             "properties": {
               "text": "Buttons & Dropdowns",
@@ -646,11 +1013,11 @@
           }
         ],
         "Images": [
-            {
+          {
             "type": "image",
             "id": "image",
-            "x": 5,
-            "y": -5,
+            "x": 15,
+            "y": 0,
             "w": 500,
             "h": 500,
             "properties": {
@@ -666,7 +1033,7 @@
             "w": 400,
             "h": 200,
             "properties": {
-              "text": "Convert the input image:\n./convert.py ./image.png image\n\nSend base64-encoded images via MQTT:\nmosquitto_pub -t demo/image -f image.base64.txt\n\nOr use SD card paths:\nmosquitto_pub -t demo/image -m '/sdcard/image.qoi'",
+              "text": "Convert the input image:\n./convert.py ./image.png image\n\nSend base64-encoded images via MQTT:\nmosquitto_pub -t demo/image -f image.base64.txt\n\nOr use SD card paths:\nmosquitto_pub -t demo/image -m '/sdcard/lena.qoi'\nmosquitto_pub -t demo/image -m '/sdcard/pc.qoi'\nmosquitto_pub -t demo/image -m '/sdcard/gpu.qoi'",
               "color": "#888888"
             }
           }

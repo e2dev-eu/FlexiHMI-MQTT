@@ -3,6 +3,8 @@
 A production-ready, MQTT-controlled dynamic Human-Machine Interface (HMI) system for the ESP32-P4-Function-EV-Board or JC1060WP470C_I_W_Y.
 Features LVGL 9.3, real-time configuration updates, 14 widget types, and hardware-accelerated graphics.
 
+![Demo screenshots](examples/screnshots/animated.gif)
+
 ## Key Features
 
 - 🎨 **14 Widget Types**: Labels, Buttons, Switches, Sliders, Gauges, Images, and more

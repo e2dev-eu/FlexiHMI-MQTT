@@ -15,6 +15,7 @@
 #include "wireless_manager.h"
 #include "lan_manager.h"
 #include "backlight_manager.h"
+#include "http_server.h"
 #include "esp_hosted.h" // ESP-Hosted for ESP32-C6 wireless co-processor
 
 static const char *TAG = "app_main_cpp";
@@ -256,6 +257,11 @@ extern "C" void app_main_cpp(void)
 
     // Initialize network managers (Ethernet and Wi-Fi) - can take time
     init_network_managers();
+
+    // Start HTTP server for /api endpoints
+    if (http_server_start() != ESP_OK) {
+        ESP_LOGW(TAG, "HTTP server failed to start");
+    }
 
     // Create HMI task for UI updates
     xTaskCreate(hmi_task, "hmi_task", 8192, NULL, 4, NULL);
