@@ -25,7 +25,6 @@ __pycache__/
 
 # Debug files
 *.elf
-*.bin
 *.map
 
 # Dependencies

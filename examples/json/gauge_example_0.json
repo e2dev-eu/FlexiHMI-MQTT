@@ -1,0 +1,218 @@
+{
+  "version": 5,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 30,
+      "properties": {
+        "text": "Gauge Demo (MQTT driven)",
+        "align": "center",
+        "font_size": 20,
+        "color": "#C9D1D9"
+      }
+    },
+    {
+      "id": "gauge1",
+      "type": "gauge",
+      "x": 50,
+      "y": 50,
+      "w": 250,
+      "h": 250,
+      "properties": {
+        "min": 0,
+        "max": 200,
+        "value": 75,
+        "mqtt_topic": "panel/gauge1"
+      }
+    },
+    {
+      "id": "gauge2",
+      "type": "gauge",
+      "x": 350,
+      "y": 50,
+      "w": 250,
+      "h": 250,
+      "properties": {
+        "min": 0,
+        "max": 100,
+        "value": 50,
+        "mqtt_topic": "panel/gauge2"
+      }
+    },
+    {
+      "id": "temp_gauge",
+      "type": "gauge",
+      "x": 650,
+      "y": 50,
+      "w": 250,
+      "h": 250,
+      "properties": {
+        "min": -20,
+        "max": 120,
+        "value": 22,
+        "mqtt_topic": "sensor/temperature"
+      }
+    },
+    {
+      "id": "gauge_label",
+      "type": "label",
+      "x": 50,
+      "y": 320,
+      "w": 250,
+      "h": 40,
+      "properties": {
+        "text": "Speed (km/h)",
+        "align": "center",
+        "font_size": 18
+      }
+    },
+    {
+      "id": "gauge2_label",
+      "type": "label",
+      "x": 350,
+      "y": 320,
+      "w": 250,
+      "h": 40,
+      "properties": {
+        "text": "Battery (%)",
+        "align": "center",
+        "font_size": 18
+      }
+    },
+    {
+      "id": "temp_label",
+      "type": "label",
+      "x": 650,
+      "y": 320,
+      "w": 250,
+      "h": 40,
+      "properties": {
+        "text": "Temperature (°C)",
+        "align": "center",
+        "font_size": 18
+      }
+    },
+    {
+      "id": "controls_label",
+      "type": "label",
+      "x": 50,
+      "y": 380,
+      "w": 900,
+      "h": 30,
+      "properties": {
+        "text": "MQTT Test Controls:",
+        "align": "left",
+        "font_size": 16
+      }
+    },
+    {
+      "id": "controls_note",
+      "type": "label",
+      "x": 50,
+      "y": 360,
+      "w": 900,
+      "h": 20,
+      "properties": {
+        "text": "Use buttons below to publish sample values.",
+        "align": "left",
+        "font_size": 14,
+        "color": "#888888"
+      }
+    },
+    {
+      "id": "btn_speed_0",
+      "type": "button",
+      "x": 50,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Speed 0",
+        "mqtt_topic": "panel/gauge1",
+        "mqtt_payload": "0"
+      }
+    },
+    {
+      "id": "btn_speed_100",
+      "type": "button",
+      "x": 180,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Speed 100",
+        "mqtt_topic": "panel/gauge1",
+        "mqtt_payload": "100"
+      }
+    },
+    {
+      "id": "btn_speed_200",
+      "type": "button",
+      "x": 310,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Speed 200",
+        "mqtt_topic": "panel/gauge1",
+        "mqtt_payload": "200"
+      }
+    },
+    {
+      "id": "btn_battery_25",
+      "type": "button",
+      "x": 450,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Battery 25%",
+        "mqtt_topic": "panel/gauge2",
+        "mqtt_payload": "25"
+      }
+    },
+    {
+      "id": "btn_battery_75",
+      "type": "button",
+      "x": 580,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Battery 75%",
+        "mqtt_topic": "panel/gauge2",
+        "mqtt_payload": "75"
+      }
+    },
+    {
+      "id": "btn_temp_minus",
+      "type": "button",
+      "x": 720,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Temp -10°C",
+        "mqtt_topic": "sensor/temperature",
+        "mqtt_payload": "-10"
+      }
+    },
+    {
+      "id": "btn_temp_plus",
+      "type": "button",
+      "x": 850,
+      "y": 420,
+      "w": 120,
+      "h": 50,
+      "properties": {
+        "text": "Temp 100°C",
+        "mqtt_topic": "sensor/temperature",
+        "mqtt_payload": "100"
+      }
+    }
+  ]
+}

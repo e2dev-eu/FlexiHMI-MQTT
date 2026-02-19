@@ -1,0 +1,242 @@
+{
+  "version": "2.0",
+  "description": "LED light control example with two rooms",
+  "widgets": [
+    {
+      "type": "tabview",
+      "id": "led_tabs",
+      "x": 0,
+      "y": 0,
+      "w": 1024,
+      "h": 600,
+      "properties": {
+        "tabs": ["Kitchen", "Bedroom"],
+        "active_tab": 0
+      },
+      "children": {
+        "Kitchen": [
+          {
+            "type": "label",
+            "id": "kitchen_title",
+            "x": 20,
+            "y": 10,
+            "w": 600,
+            "h": 30,
+            "properties": {
+              "text": "Kitchen LED Lighting"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "kitchen_enable",
+            "x": 20,
+            "y": 60,
+            "w": 60,
+            "h": 30,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "cmnd/bulbs/kitchen/led_enableAll"
+            }
+          },
+          {
+            "type": "label",
+            "id": "kitchen_enable_label",
+            "x": 90,
+            "y": 63,
+            "w": 200,
+            "h": 25,
+            "properties": {
+              "text": "Enable"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "kitchen_red",
+            "x": 20,
+            "y": 120,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/kitchen/1/set",
+              "color": "#FF0000"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "kitchen_green",
+            "x": 20,
+            "y": 170,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/kitchen/2/set",
+              "color": "#00FF00"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "kitchen_blue",
+            "x": 20,
+            "y": 220,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/kitchen/3/set",
+              "color": "#0000FF"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "kitchen_warm",
+            "x": 20,
+            "y": 270,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/kitchen/5/set",
+              "color": "#FFB000"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "kitchen_cold",
+            "x": 20,
+            "y": 320,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/kitchen/4/set",
+              "color": "#00BFFF"
+            }
+          }
+        ],
+        "bedroom": [
+          {
+            "type": "label",
+            "id": "bedroom_title",
+            "x": 20,
+            "y": 10,
+            "w": 600,
+            "h": 30,
+            "properties": {
+              "text": "Bedroom LED Lighting"
+            }
+          },
+          {
+            "type": "switch",
+            "id": "bedroom_enable",
+            "x": 20,
+            "y": 60,
+            "w": 60,
+            "h": 30,
+            "properties": {
+              "state": false,
+              "mqtt_topic": "cmnd/bulbs/bedroom/led_enableAll"
+            }
+          },
+          {
+            "type": "label",
+            "id": "bedroom_enable_label",
+            "x": 90,
+            "y": 63,
+            "w": 200,
+            "h": 25,
+            "properties": {
+              "text": "Enable"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "bedroom_red",
+            "x": 20,
+            "y": 120,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/bedroom/1/set",
+              "color": "#FF0000"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "bedroom_green",
+            "x": 20,
+            "y": 170,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/bedroom/2/set",
+              "color": "#00FF00"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "bedroom_blue",
+            "x": 20,
+            "y": 220,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/bedroom/3/set",
+              "color": "#0000FF"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "bedroom_warm",
+            "x": 20,
+            "y": 270,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/bedroom/5/set",
+              "color": "#FFB000"
+            }
+          },
+          {
+            "type": "slider",
+            "id": "bedroom_cold",
+            "x": 20,
+            "y": 320,
+            "w": 500,
+            "h": 30,
+            "properties": {
+              "min": 0,
+              "max": 100,
+              "value": 0,
+              "mqtt_topic": "bulbs/bedroom/4/set",
+              "color": "#00BFFF"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
