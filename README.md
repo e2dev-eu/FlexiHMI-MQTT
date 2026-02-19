@@ -1,7 +1,7 @@
 # FlexiHMI MQTT
 
-A production-ready, MQTT-controlled dynamic Human-Machine Interface (HMI) system for the ESP32-P4-Function-EV-Board or JC1060WP470C_I_W_Y.
-Features LVGL 9.3, real-time configuration updates, 14 widget types, and hardware-accelerated graphics.
+FlexiHMI is a project I built to make ESP32-P4 dashboards easier and more fun to create and control over MQTT.
+It runs on the ESP32-P4-Function-EV-Board and JC1060WP470C_I_W_Y, uses LVGL 9.3, supports 14 widget types, and updates the UI in real time.
 
 ![Demo screenshots](examples/screnshots/animated.gif)
 
@@ -60,6 +60,10 @@ get_idf
 # Build and flash
 idf.py build flash monitor
 ```
+
+Or flash directly from the browser using the web flasher:
+
+- https://e2dev.eu/FlexiHMI-webLoader/
 
 ### Board Selection
 
@@ -253,7 +257,12 @@ idf.py build
 
 # Flash and monitor
 idf.py flash monitor
+
+# Create single combined bin for web flasher (loads ESP-IDF env via get_idf)
+./tools/create_combined_bin.sh
 ```
+
+The merged output is generated at `build/web_flasher_combined.bin`.
 
 ### Configuration Options
 
