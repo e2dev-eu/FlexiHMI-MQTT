@@ -1,7 +1,9 @@
 # FlexiHMI MQTT
 
-FlexiHMI is a project I built to make ESP32-P4 dashboards easier and more fun to create and control over MQTT.
-It runs on the ESP32-P4-Function-EV-Board and JC1060WP470C_I_W_Y, uses LVGL 9.3, supports 15 widget types, and updates the UI in real time.
+FlexiHMI is software for ESP32-P4–based boards that enables easy creation of MQTT-based HMI panels.
+The user interface is created and reconfigured at runtime using dynamic JSON configuration, while all data exchange—including state, commands, and updates—is handled over MQTT.
+
+FlexiHMI started as a small personal project and gradually evolved into its current form. As it became more capable and useful, I decided to refine it and release it as an open-source project.
 
 ![Demo screenshots](examples/screnshots/animated.gif)
 
@@ -101,38 +103,28 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f examples/json/interactive_exampl
 ## Project Structure
 
 ```
-FlexiHMI-MQTT/
-├── main/
-│   ├── main.c                  # C entry point, hardware init
-│   └── main.cpp                # C++ main with HMI task
+FlexiHMI/
+├── main/                       # Application entry points and HMI task startup
 ├── components/
-│   ├── config_manager/         # JSON parsing and widget creation
-│   ├── mqtt_manager/           # MQTT client with chunking support
-│   ├── hmi_widgets/            # All 15 widget implementations
-│   │   ├── label_widget.cpp
-│   │   ├── button_widget.cpp
-│   │   ├── gauge_widget.cpp
-│   │   ├── image_widget.cpp    # SD + base64 support
-│   │   ├── line_chart_widget.cpp
-│   │   └── ...
-│   ├── ethernet/               # Ethernet support
-│   ├── settings_ui/            # Configuration UI
-│   └── status_info_ui/         # System status display
+│   ├── config_manager/         # JSON parsing, widget creation, reconfiguration
+│   ├── mqtt_manager/           # MQTT client, subscriptions, chunked payload handling
+│   ├── hmi_widgets/            # 15 widget implementations (incl. image + line chart)
+│   ├── settings_ui/            # Runtime WiFi/MQTT settings panel
+│   ├── status_info_ui/         # Connection and system status overlay
+│   ├── ethernet/               # Ethernet integration
+│   ├── wireless_manager/       # WiFi mode and state management
+│   └── ...
 ├── examples/
-│   ├── json/                   # Example configurations
-│   │   ├── README.md           # Configuration guide
-│   │   ├── interactive_example.json
-│   │   ├── gauge_example_1.json
-│   │   ├── image_example.json
-│   │   └── ...
-│   ├── images/                 # Sample images and conversion utility
-│   │   └── convert.py           # Convert to QOI + base64
-├── docs/
-│   ├── WIDGETS.md              # Complete widget reference
-│   └── NETWORK_CONFIG_PERSISTENCE.md
-└── managed_components/          # ESP-IDF components (auto-downloaded)
-    ├── lvgl__lvgl/             # LVGL 9.3.x
-    └── ...
+│   ├── json/                   # Ready-to-publish dashboard/widget JSON configs
+│   ├── images/                 # Image conversion helpers (QOI/base64)
+│   ├── screnshots/             # Demo screenshots/animations
+│   └── publish_sine_chart.py   # Line chart live-data generator
+├── docs/                       # Widget spec and additional documentation
+├── tools/                      # Build/packaging helpers (combined binary, etc.)
+├── webLoader/                  # Web flasher assets/integration
+├── managed_components/         # ESP-IDF managed dependencies (LVGL, LCD/touch, ...)
+├── sdkconfig.defaults          # Project default configuration
+└── CMakeLists.txt              # Top-level ESP-IDF build definition
 ```
 
 ## Configuration System
