@@ -295,7 +295,7 @@ mosquitto_pub -h 192.168.100.200 -t "demo/image1" -m "/sdcard/yourimage.qoi"
 
 ```bash
 # 1. Navigate to examples/images directory
-cd /path/to/ESP32P4-MQTT-Panel/examples/images
+cd /path/to/FlexiHMI-MQTT/examples/images
 
 # 2. Prepare your image (resize if needed)
 convert iot.png -resize 128x128 iot_small.png

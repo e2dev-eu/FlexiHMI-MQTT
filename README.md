@@ -101,7 +101,7 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f examples/json/interactive_exampl
 ## Project Structure
 
 ```
-ESP32P4-MQTT-Panel/
+FlexiHMI-MQTT/
 ├── main/
 │   ├── main.c                  # C entry point, hardware init
 │   └── main.cpp                # C++ main with HMI task
@@ -202,10 +202,6 @@ ESP32-P4's PPA (Pixel Processing Accelerator) is enabled for:
 
 This significantly improves FPS, especially with multiple animated widgets.
 
-### Thread Safety
-
-All MQTT callbacks use LVGL's `lv_async_call()` to ensure thread-safe widget updates from the MQTT task context.
-
 ### Message Chunking
 
 The MQTT manager automatically handles chunked messages up to 1MB, perfect for large configurations with base64 images.
@@ -274,7 +270,7 @@ See [examples/json/README.md](examples/json/README.md) for detailed descriptions
 ```bash
 # Clone repository
 git clone <repository_url>
-cd ESP32P4-MQTT-Panel
+cd FlexiHMI-MQTT
 
 # Build
 idf.py build
@@ -282,8 +278,6 @@ idf.py build
 # Flash and monitor
 idf.py flash monitor
 
-# Create single combined bin for web flasher (loads ESP-IDF env via get_idf)
-./tools/create_combined_bin.sh
 ```
 
 The merged output is generated at `build/web_flasher_combined.bin`.
@@ -295,14 +289,14 @@ Key options in `sdkconfig.defaults`:
 ```
 # Performance
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
-CONFIG_LV_USE_DRAW_PPA=y              # Hardware acceleration
+CONFIG_LV_USE_DRAW_PPA=y               # Hardware acceleration
 CONFIG_LV_DRAW_PPA_BLEND=y
 
 # MQTT
 CONFIG_MQTT_BUFFER_SIZE=524288         # 512KB buffer
 
 # Images
-CONFIG_LV_USE_FS_POSIX=y              # SD card support (P4 EV board)
+CONFIG_LV_USE_FS_POSIX=y               # SD card support (P4 EV board)
 ```
 
 ## Utilities
@@ -355,12 +349,8 @@ ls -lh config.json
 ## Performance
 
 - **Boot time**: ~3-5 seconds to display
-- **Config load**: <1 second for typical configurations
+- **Config load**: <3 second for typical configurations
 - **FPS**: 30-60 FPS with PPA acceleration
-- **Touch latency**: <50ms
-- **MQTT latency**: <100ms for updates
-- **Max config size**: 512kb
-- **Max base64 image**: ~100KB recommended
 
 ## License
 
