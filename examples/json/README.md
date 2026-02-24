@@ -130,6 +130,20 @@ mosquitto_pub -h <broker_ip> -t "hmi/config" -f single_screen_example.json
 ./send_mqtt_json.sh <broker_ip> hmi/config single_screen_example.json
 ```
 
+### Line Chart Live Data (Sinusoidal)
+
+Use the helper script in `examples/` to continuously publish sinusoidal values for the line chart demo.
+
+```bash
+# From project root
+python3 examples/publish_sine_chart.py --broker 192.168.100.200
+```
+
+Defaults:
+- Topic: `demo/line_chart`
+- Sample rate: `2` samples/second
+- Period: `18` samples
+
 ### Image Widget with Base64 - Step by Step
 
 #### Method 1: Using Base64 in Initial Configuration

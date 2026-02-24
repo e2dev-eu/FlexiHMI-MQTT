@@ -184,7 +184,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
   "properties": {
     "state": false,
     "mqtt_topic": "home/fan/state",
-    "mqtt_retained": true,
+    "mqtt_retained": false,
     "color": "#4CAF50"
   }
 }
@@ -193,7 +193,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 **Properties:**
 - `state` (boolean): Initial state (true = ON, false = OFF)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message (default: true)
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Switch indicator color in hex format
 
 ---
@@ -241,7 +241,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 - `max` (number): Maximum value (default: 100)
 - `value` (number): Initial value
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message (default: true)
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Slider indicator/knob color in hex format
 
 ---
@@ -274,7 +274,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
     "max": 100,
     "value": 50,
     "mqtt_topic": "audio/volume",
-    "mqtt_retained": true,
+    "mqtt_retained": false,
     "color": "#9C27B0"
   }
 }
@@ -285,7 +285,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 - `max` (number): Maximum value (default: 100)
 - `value` (number): Initial value
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Arc indicator color in hex format
 
 ---
@@ -317,7 +317,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
     "options": ["Auto", "Heat", "Cool", "Fan"],
     "selected": 0,
     "mqtt_topic": "hvac/mode",
-    "mqtt_retained": true,
+    "mqtt_retained": false,
     "color": "#03A9F4"
   }
 }
@@ -327,7 +327,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 - `options` (array): List of string options
 - `selected` (number): Initial selected index (0-based)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Dropdown color in hex format
 
 ---
@@ -358,7 +358,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
     "text": "Enable Notifications",
     "checked": true,
     "mqtt_topic": "settings/notifications",
-    "mqtt_retained": true,
+    "mqtt_retained": false,
     "color": "#4CAF50"
   }
 }
@@ -368,7 +368,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 - `text` (string): Label text next to checkbox
 - `checked` (boolean): Initial checked state
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `color` (string, optional): Checkbox color in hex format
 
 ---
@@ -515,7 +515,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
     "tabs": ["Controls", "Status", "Settings"],
     "active_tab": 0,
     "mqtt_topic": "ui/active_tab",
-    "mqtt_retained": true,
+    "mqtt_retained": false,
     "bg_color": "#1E1E1E",
     "tab_bg_color": "#0D1117",
     "active_tab_color": "#58A6FF",
@@ -546,7 +546,7 @@ This document describes the HMI widget system for the FlexiHMI MQTT, including a
 - `tabs` (array): List of tab names (strings)
 - `active_tab` (number): Initial active tab index (default: 0)
 - `mqtt_topic` (string): Topic for publish/subscribe
-- `mqtt_retained` (boolean, optional): Publish as retained message
+- `mqtt_retained` (boolean, optional): Publish as retained message (default: false)
 - `bg_color` (string, optional): Background color of content area in hex format
 - `tab_bg_color` (string, optional): Background color of tab bar in hex format
 - `active_tab_color` (string, optional): Color of active tab indicator in hex format
@@ -811,7 +811,7 @@ void MyWidget::onMqttMessage(const std::string& topic, const std::string& payloa
 1. **Publishing Widgets (with `mqtt_retained` property):**
   - Button, Switch, Checkbox, Slider, Arc, Dropdown, Tabview
    - Publish state changes with configurable retained flag
-  - Default varies by widget (most stateful widgets default to retained)
+  - Default: `mqtt_retained: false`
   - Use retained for persistent state (e.g., setpoints, selected modes)
 
 2. **Display-Only Widgets (no retained property):**
@@ -847,7 +847,7 @@ All color properties use hex format: `#RRGGBB`
 
 **JSON Properties:**
 - All boolean properties in JSON config use JSON boolean: `true` / `false`
-- Example: `"mqtt_retained": true`, `"checked": false`
+- Example: `"mqtt_retained": false`, `"checked": false`
 
 **Rationale:** Different widgets may have different MQTT conventions. Switch uses ON/OFF to match Home Assistant and other smart home systems. Checkbox uses true/false for general boolean semantics.
 
@@ -1163,7 +1163,7 @@ The following widgets could be implemented based on LVGL components:
 | Property | Type | Description |
 |----------|------|-------------|
 | `mqtt_topic` | string | Topic for publish/subscribe |
-| `mqtt_retained` | boolean | Publish as retained message (default: true) |
+| `mqtt_retained` | boolean | Publish as retained message (default: false) |
 
 #### MQTT Data Formats by Widget Type
 
@@ -1324,7 +1324,7 @@ Widgets that support bidirectional MQTT communication (Switch, Checkbox, Slider,
 
 ### Retained Messages
 
-Widgets default to publishing retained MQTT messages (`retained: true`) to ensure state persistence across MQTT broker restarts. This can be disabled per widget.
+Publishing widgets default to non-retained MQTT messages (`retained: false`). This can be enabled per widget using `mqtt_retained: true`.
 
 ### MQTT Message Examples
 

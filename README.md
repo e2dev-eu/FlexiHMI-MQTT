@@ -66,6 +66,18 @@ Or flash directly from the browser using the web flasher:
 
 - https://e2dev.eu/FlexiHMI-webLoader/
 
+### Supported Hardware
+
+FlexiHMI currently supports the following boards:
+
+#### ESP32-P4-Function-EV-Board
+
+![ESP32-P4-Function-EV-Board](docs/ESP32-P4-Function-EV-Board.png)
+
+#### JC1060WP470C_I_W_Y
+
+![JC1060WP470C_I_W_Y](docs/JC1060WP470C_I_W_Y.png)
+
 ### Board Selection
 
 Select the target board in menuconfig:
@@ -215,6 +227,15 @@ The MQTT manager automatically handles chunked messages up to 1MB, perfect for l
 - `tabview_demo.json` - Multi-tab layouts
 - `single_screen_example.json` - Multi-widget single screen
 - **`interactive_example.json`** - Production-ready dashboard (⭐ Recommended)
+
+### Chart Live Data Generator
+
+- `examples/publish_sine_chart.py` - Publishes sinusoidal samples for `line_chart_example.json`
+
+```bash
+# 2 samples/sec, 18 samples/period (defaults)
+python3 examples/publish_sine_chart.py --broker 192.168.100.200
+```
 
 See [examples/json/README.md](examples/json/README.md) for detailed descriptions.
 
