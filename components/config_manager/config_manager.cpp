@@ -14,6 +14,7 @@
 #include "tabview_widget.h"
 #include "gauge_widget.h"
 #include "image_widget.h"
+#include "line_chart_widget.h"
 #include "esp_log.h"
 
 // C wrapper functions for bringing UI elements to front
@@ -193,6 +194,8 @@ HMIWidget* ConfigManager::createWidgetByType(const std::string& type, const std:
         return new GaugeWidget(id, x, y, w, h, properties, parent);
     } else if (type == "image") {
         return new ImageWidget(id, x, y, w, h, properties, parent);
+    } else if (type == "line_chart") {
+        return new LineChartWidget(id, x, y, w, h, properties, parent);
     }
     ESP_LOGE(TAG, "Unknown widget type: %s", type.c_str());
     return nullptr;

@@ -15,6 +15,7 @@ idf_component_register(
         "tabview_widget.cpp"
         "gauge_widget.cpp"
         "image_widget.cpp"
+        "line_chart_widget.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES

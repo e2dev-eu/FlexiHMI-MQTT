@@ -44,7 +44,7 @@ Sliders and progress bars for value adjustment.
 - Arc widgets (circular sliders)
 - MQTT bidirectional control
 
-#### [gauge_example.json](gauge_example.json)
+#### [gauge_example_1.json](gauge_example_1.json)
 Analog-style circular gauges with standardized range properties.
 
 **Features:**
@@ -63,6 +63,15 @@ Image widgets demonstrating SD card and base64 QOI image loading.
 - Dynamic image switching
 - Control buttons for image selection
 
+#### [line_chart_example.json](line_chart_example.json)
+Real-time line chart driven by MQTT samples.
+
+**Features:**
+- `line_chart` widget with configurable range and history length
+- Slider and buttons publishing numeric samples to chart topic
+- Live label showing latest sample value
+- Ready-to-test topic: `demo/line_chart`
+
 ## Complex Demonstrations
 
 ### [tabview_demo.json](tabview_demo.json)
@@ -74,8 +83,8 @@ Multi-tab interface with widgets organized across different tabs.
 - Tab switching via MQTT
 - Per-tab child widget management
 
-### [gauge_demo.json](gauge_demo.json)
-Multiple gauges with interactive controls in a single view.
+### [gauge_example_0.json](gauge_example_0.json)
+Alternative gauge-focused demonstration.
 
 **Features:**
 - Multiple gauge widgets
@@ -83,17 +92,17 @@ Multiple gauges with interactive controls in a single view.
 - MQTT-driven value updates
 - Real-time monitoring display
 
-### [complete_demo.json](complete_demo.json)
-Comprehensive demonstration of all widget types in action.
+### [single_screen_example.json](single_screen_example.json)
+Single-screen demonstration with multiple widget types.
 
 **Features:**
-- All 14 widget types
+- Mixed widgets on one screen
 - Labels, buttons, switches, sliders
 - Gauges, arcs, bars, LEDs
 - Checkboxes, dropdowns, spinners
 - Containers and tabviews
 
-### [interactive_complete_demo.json](interactive_complete_demo.json) ⭐
+### [interactive_example.json](interactive_example.json) 
 **The most comprehensive example** - Full-featured interactive demonstration with tabs organizing different widget categories.
 
 **Features:**
@@ -115,10 +124,10 @@ Send any JSON file to your ESP32-P4 via MQTT:
 
 ```bash
 # Using mosquitto_pub
-mosquitto_pub -h <broker_ip> -t "hmi/config" -f complete_demo.json
+mosquitto_pub -h <broker_ip> -t "hmi/config" -f single_screen_example.json
 
 # Or with the provided script
-./load_config.sh <broker_ip> complete_demo.json
+./send_mqtt_json.sh <broker_ip> hmi/config single_screen_example.json
 ```
 
 ### Image Widget with Base64 - Step by Step
@@ -300,16 +309,17 @@ Start with the basic examples to understand each widget type:
 2. **Buttons:** `button_example.json` - Learn interaction
 3. **Switches:** `switch_example.json` - Learn state management
 4. **Sliders:** `slider_example.json` - Learn value controls
-5. **Gauges:** `gauge_example.json` - Learn analog displays
-6. **Images:** `image_example.json` - Learn image loading
+5. **Gauges:** `gauge_example_1.json` - Learn analog displays
+6. **Line Charts:** `line_chart_example.json` - Learn real-time trend plotting
+7. **Images:** `image_example.json` - Learn image loading
 
 ### Building Complex UIs
 
 Progress to the advanced examples:
 
 1. **Tabview:** `tabview_demo.json` - Learn multi-screen layouts
-2. **Complete:** `complete_demo.json` - See all widgets together
-3. **Interactive:** `interactive_complete_demo.json` - Study production UI
+2. **Single Screen:** `single_screen_example.json` - See many widgets together
+3. **Interactive:** `interactive_example.json` - Study production UI
 
 ## MQTT Topics
 
@@ -382,7 +392,7 @@ All widgets follow consistent property naming:
 ## Tips
 
 1. **Start Simple:** Begin with single-widget examples before complex UIs
-2. **Use Tabs:** For complex UIs, organize widgets into tabs (see `interactive_complete_demo.json`)
+2. **Use Tabs:** For complex UIs, organize widgets into tabs (see `interactive_example.json`)
 3. **MQTT Topics:** Use descriptive topic names for easier debugging
 4. **Widget IDs:** Keep IDs unique and descriptive
 5. **Positioning:** ESP32-P4 Function EV Board display is 1024x600 pixels
@@ -412,20 +422,20 @@ Note: MQTT buffers are configured for up to 512 KB messages.
 ## Common Patterns
 
 ### Dashboard Layout
-See `interactive_complete_demo.json` for a professional dashboard with:
+See `interactive_example.json` for a professional dashboard with:
 - Themed sections
 - Organized tabs
 - Consistent spacing
 - Color-coded widgets
 
 ### Monitoring System
-See `gauge_demo.json` for real-time monitoring:
+See `gauge_example_0.json` for real-time monitoring:
 - Multiple gauges
 - Status labels
 - Alert indicators
 
 ### Control Panel
-See `complete_demo.json` for device control:
+See `single_screen_example.json` for device control:
 - Switches and buttons
 - Value adjustments
 - Status feedback

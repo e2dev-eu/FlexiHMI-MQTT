@@ -1,20 +1,20 @@
 # FlexiHMI MQTT
 
 FlexiHMI is a project I built to make ESP32-P4 dashboards easier and more fun to create and control over MQTT.
-It runs on the ESP32-P4-Function-EV-Board and JC1060WP470C_I_W_Y, uses LVGL 9.3, supports 14 widget types, and updates the UI in real time.
+It runs on the ESP32-P4-Function-EV-Board and JC1060WP470C_I_W_Y, uses LVGL 9.3, supports 15 widget types, and updates the UI in real time.
 
 ![Demo screenshots](examples/screnshots/animated.gif)
 
 ## Key Features
 
-- 🎨 **14 Widget Types**: Labels, Buttons, Switches, Sliders, Gauges, Images, and more
-- 🔄 **Dynamic Configuration**: Update entire UI via MQTT JSON messages
-- 📡 **Full MQTT Integration**: Bidirectional control for all interactive widgets
-- 🖼️ **Advanced Image Support**: QOI images from SD card (when available) + base64 QOI over MQTT
-- ⚡ **Hardware Acceleration**: ESP32-P4 PPA (Pixel Processing Accelerator) enabled
-- 🎯 **Thread-Safe**: Async callbacks ensure safe LVGL operations
-- 📱 **Touch Support**: Full capacitive touch integration
-- 💾 **Large Message Support**: 512KB-1MB MQTT buffers for complex configurations
+- **15 Widget Types**: Labels, Buttons, Switches, Sliders, Gauges, Images, Line Charts, and more
+- **Dynamic Configuration**: Update entire UI via MQTT JSON messages
+- **Full MQTT Integration**: Bidirectional control for all interactive widgets
+- **Advanced Image Support**: QOI images from SD card (when available) + base64 QOI over MQTT
+- **Hardware Acceleration**: ESP32-P4 PPA (Pixel Processing Accelerator) enabled
+- **Thread-Safe**: Async callbacks ensure safe LVGL operations
+- **Touch Support**: Full capacitive touch integration
+- **Large Message Support**: 512KB-1MB MQTT buffers for complex configurations
 
 ## Hardware
 
@@ -40,6 +40,7 @@ It runs on the ESP32-P4-Function-EV-Board and JC1060WP470C_I_W_Y, uses LVGL 9.3,
 12. **Tabview** - Multi-tab interfaces with per-tab widgets
 13. **Gauge** - Analog-style circular gauges with needles
 14. **Image** - Display images from SD card or base64 data via MQTT
+15. **Line Chart** - Real-time chart that appends MQTT numeric samples
 
 See [docs/WIDGETS.md](docs/WIDGETS.md) for detailed specifications.
 
@@ -82,7 +83,7 @@ The device will connect to your MQTT broker on boot. Configure WiFi/MQTT credent
 
 ```bash
 # Send a JSON configuration via MQTT
-mosquitto_pub -h <broker_ip> -t "hmi/config" -f examples/json/interactive_complete_demo.json
+mosquitto_pub -h <broker_ip> -t "hmi/config" -f examples/json/interactive_example.json
 ```
 
 ## Project Structure
@@ -95,11 +96,12 @@ ESP32P4-MQTT-Panel/
 ├── components/
 │   ├── config_manager/         # JSON parsing and widget creation
 │   ├── mqtt_manager/           # MQTT client with chunking support
-│   ├── hmi_widgets/            # All 14 widget implementations
+│   ├── hmi_widgets/            # All 15 widget implementations
 │   │   ├── label_widget.cpp
 │   │   ├── button_widget.cpp
 │   │   ├── gauge_widget.cpp
 │   │   ├── image_widget.cpp    # SD + base64 support
+│   │   ├── line_chart_widget.cpp
 │   │   └── ...
 │   ├── ethernet/               # Ethernet support
 │   ├── settings_ui/            # Configuration UI
@@ -107,15 +109,15 @@ ESP32P4-MQTT-Panel/
 ├── examples/
 │   ├── json/                   # Example configurations
 │   │   ├── README.md           # Configuration guide
-│   │   ├── interactive_complete_demo.json
-│   │   ├── gauge_demo.json
+│   │   ├── interactive_example.json
+│   │   ├── gauge_example_1.json
 │   │   ├── image_example.json
 │   │   └── ...
 │   ├── images/                 # Sample images and conversion utility
 │   │   └── convert.py           # Convert to QOI + base64
 ├── docs/
 │   ├── WIDGETS.md              # Complete widget reference
-│   └── INITIAL_SPEC.md         # Original specification
+│   └── NETWORK_CONFIG_PERSISTENCE.md
 └── managed_components/          # ESP-IDF components (auto-downloaded)
     ├── lvgl__lvgl/             # LVGL 9.3.x
     └── ...
@@ -137,8 +139,8 @@ ESP32P4-MQTT-Panel/
       "w": 200,
       "h": 200,
       "properties": {
-        "min_value": 0,
-        "max_value": 200,
+        "min": 0,
+        "max": 200,
         "value": 65,
         "mqtt_topic": "vehicle/speed"
       }
@@ -204,14 +206,15 @@ The MQTT manager automatically handles chunked messages up to 1MB, perfect for l
 - `button_example.json` - Interactive buttons
 - `switch_example.json` - Toggle controls
 - `slider_example.json` - Value adjustments
-- `gauge_example.json` - Analog displays
+- `gauge_example_0.json` / `gauge_example_1.json` - Analog displays
+- `line_chart_example.json` - Real-time line chart samples
 - `image_example.json` - Image loading
 
 ### Advanced Examples
 
 - `tabview_demo.json` - Multi-tab layouts
-- `complete_demo.json` - All widgets showcase
-- **`interactive_complete_demo.json`** - Production-ready dashboard (⭐ Recommended)
+- `single_screen_example.json` - Multi-widget single screen
+- **`interactive_example.json`** - Production-ready dashboard (⭐ Recommended)
 
 See [examples/json/README.md](examples/json/README.md) for detailed descriptions.
 

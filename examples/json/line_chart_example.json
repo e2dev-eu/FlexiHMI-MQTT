@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 10,
+      "y": 10,
+      "w": 1004,
+      "h": 40,
+      "properties": {
+        "text": "Line Chart Widget Example",
+        "align": "center",
+        "font_size": 24
+      }
+    },
+    {
+      "id": "title_note",
+      "type": "label",
+      "x": 10,
+      "y": 50,
+      "w": 1004,
+      "h": 20,
+      "properties": {
+        "text": "Slider publishes samples to demo/line_chart; chart appends each new value.",
+        "align": "center",
+        "font_size": 14,
+        "color": "#888888"
+      }
+    },
+    {
+      "id": "line_chart_1",
+      "type": "line_chart",
+      "x": 60,
+      "y": 90,
+      "w": 900,
+      "h": 320,
+      "properties": {
+        "min": 0,
+        "max": 100,
+        "points": 60,
+        "value": 30,
+        "mqtt_topic": "demo/line_chart",
+        "color": "#03A9F4"
+      }
+    },
+    {
+      "id": "value_label",
+      "type": "label",
+      "x": 60,
+      "y": 440,
+      "w": 260,
+      "h": 30,
+      "properties": {
+        "text": "Latest: 30",
+        "mqtt_topic": "demo/line_chart",
+        "format": "Latest: %s",
+        "font_size": 18,
+        "color": "#03A9F4"
+      }
+    },
+    {
+      "id": "sample_slider",
+      "type": "slider",
+      "x": 250,
+      "y": 450,
+      "w": 430,
+      "h": 20,
+      "properties": {
+        "label": "Sample Value",
+        "min": 0,
+        "max": 100,
+        "value": 30,
+        "mqtt_topic": "demo/line_chart",
+        "mqtt_retained": false,
+        "color": "#03A9F4"
+      }
+    },
+    {
+      "id": "set_20",
+      "type": "button",
+      "x": 750,
+      "y": 430,
+      "w": 60,
+      "h": 45,
+      "properties": {
+        "text": "20",
+        "mqtt_topic": "demo/line_chart",
+        "mqtt_payload": "20",
+        "color": "#4CAF50"
+      }
+    },
+    {
+      "id": "set_50",
+      "type": "button",
+      "x": 825,
+      "y": 430,
+      "w": 60,
+      "h": 45,
+      "properties": {
+        "text": "50",
+        "mqtt_topic": "demo/line_chart",
+        "mqtt_payload": "50",
+        "color": "#FF9800"
+      }
+    },
+    {
+      "id": "set_80",
+      "type": "button",
+      "x": 900,
+      "y": 430,
+      "w": 60,
+      "h": 45,
+      "properties": {
+        "text": "80",
+        "mqtt_topic": "demo/line_chart",
+        "mqtt_payload": "80",
+        "color": "#F44336"
+      }
+    }
+  ]
+}

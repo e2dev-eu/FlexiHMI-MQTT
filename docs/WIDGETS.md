@@ -1,6 +1,6 @@
 # HMI Widget System Documentation
 
-This document describes the HMI widget system for the FlexiHMI MQTT, including all 14 currently implemented widgets and potential future widgets based on LVGL components.
+This document describes the HMI widget system for the FlexiHMI MQTT, including all 15 currently implemented widgets and potential future widgets based on LVGL components.
 
 ## System Capabilities
 - **MQTT Buffer:** 512KB (standard) / 1MB (authenticated) with automatic chunked message handling
@@ -688,6 +688,55 @@ mosquitto_pub -h localhost -t "gallery/current" -m "cW9pZg..."
 
 ---
 
+### 15. Line Chart Widget
+
+**Description:** Real-time line chart that appends new points from MQTT updates.
+
+**LVGL Component:** `lv_chart` (line mode)
+
+**Implementation Features:**
+- Configurable Y-axis range (`min`/`max`)
+- Configurable history length (`points`)
+- Initial fill value (`value`)
+- MQTT subscription for incoming numeric samples
+- Optional custom line color
+
+**JSON Example:**
+```json
+{
+  "type": "line_chart",
+  "id": "temp_history",
+  "x": 20,
+  "y": 220,
+  "w": 440,
+  "h": 180,
+  "properties": {
+    "min": -20,
+    "max": 80,
+    "points": 60,
+    "value": 22,
+    "mqtt_topic": "sensors/temperature",
+    "color": "#03A9F4"
+  }
+}
+```
+
+**Properties:**
+- `min` (integer, default: 0): Minimum Y-axis value
+- `max` (integer, default: 100): Maximum Y-axis value
+- `points` (integer, default: 32): Number of points kept in chart history
+- `value` (integer, default: 0): Initial value used to prefill the chart
+- `mqtt_topic` (string, optional): Topic to subscribe for new samples
+- `color` (string, optional): Series color in hex format (e.g., `"#03A9F4"`)
+
+**MQTT Behavior:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** Numeric value (e.g., `"25"`)
+- **Behavior:** Appends each value as a new sample point
+- **Value clamping:** Values are clamped to `min`/`max`
+
+---
+
 ## Common Patterns and Best Practices
 
 This section describes patterns used consistently across all widget implementations to ensure reliability, thread safety, and proper MQTT integration.
@@ -700,7 +749,7 @@ All widgets follow consistent property naming:
 |----------|---------|--------------|
 | `mqtt_topic` | Topic to subscribe/publish | All bidirectional widgets |
 | `mqtt_payload` | Custom payload for publications | Button |
-| `mqtt_retained` | Retain flag for MQTT messages | Switch, Checkbox, Slider, Arc, Bar, Gauge |
+| `mqtt_retained` | Retain flag for MQTT messages | Button, Switch, Checkbox, Slider, Arc, Dropdown, Tabview |
 
 **Consistency Notes:**
 - All MQTT subscription properties use `mqtt_topic` (never `topic`, `subscribe_topic`, etc.)
@@ -734,31 +783,24 @@ void MyWidget::onValueChanged(lv_event_t* e) {
 - Flag set BEFORE any LVGL update that might trigger callbacks
 - Flag cleared AFTER update completes
 - Event handlers check flag FIRST before publishing
-- This pattern appears in: Switch, Checkbox, Slider, Arc, Bar, Dropdown, Gauge
+- This pattern appears in: Switch, Checkbox, Slider, Arc, Dropdown, Tabview
 
 ### Thread-Safe LVGL Updates
 
 **Problem:** MQTT callbacks execute in network thread, but LVGL must be updated from main thread only.
 
-**Solution:** All MQTT message handlers use `lv_async_call()` to schedule updates:
+**Solution:** MQTT message handlers schedule updates to run on the LVGL thread:
 
 ```cpp
 void MyWidget::onMqttMessage(const std::string& topic, const std::string& payload) {
-    // Copy data to heap for async callback
-    std::string* msg_copy = new std::string(payload);
-    
-    // Schedule update on LVGL thread
-    lv_async_call([](void* user_data) {
-        std::string* msg = static_cast<std::string*>(user_data);
-        // Safe to update LVGL here
-        delete msg;  // Clean up
-    }, msg_copy);
+  m_pending_value = atoi(payload.c_str());
+  scheduleAsync(async_update_cb, this);
 }
 ```
 
 **Key Points:**
 - NEVER call LVGL functions directly from MQTT callbacks
-- Always heap-allocate data passed to async callback
+- Store pending update data in widget state before scheduling async work
 - Callback executes on main thread during `lv_timer_handler()`
 - Pattern used in ALL widgets with MQTT subscriptions
 
@@ -767,10 +809,10 @@ void MyWidget::onMqttMessage(const std::string& topic, const std::string& payloa
 **Widget Categories:**
 
 1. **Publishing Widgets (with `mqtt_retained` property):**
-   - Switch, Checkbox, Slider, Arc, Bar, Gauge
+  - Button, Switch, Checkbox, Slider, Arc, Dropdown, Tabview
    - Publish state changes with configurable retained flag
-   - Default: `mqtt_retained: false`
-   - Use retained for persistent state (e.g., thermostat setpoint)
+  - Default varies by widget (most stateful widgets default to retained)
+  - Use retained for persistent state (e.g., setpoints, selected modes)
 
 2. **Display-Only Widgets (no retained property):**
    - Label, LED, Spinner, Image
@@ -778,9 +820,7 @@ void MyWidget::onMqttMessage(const std::string& topic, const std::string& payloa
    - No retained flag needed
 
 3. **Action Widgets (no retained property):**
-   - Button
-   - Publishes on action, but retained doesn't make sense for button presses
-   - Always non-retained
+  - None (button also exposes `mqtt_retained`)
 
 **Guideline:** Set `mqtt_retained: true` only when widget represents persistent system state that should survive broker restarts.
 
@@ -841,7 +881,7 @@ The following widgets could be implemented based on LVGL components:
 
 > **Note:** MQTT data formats for planned widgets are conceptual and subject to change during implementation.
 
-### 14. Chart Widget
+### 14. Advanced Chart Widget (Planned)
 
 **Description:** Line or bar chart for visualizing time-series data.
 
@@ -862,7 +902,7 @@ The following widgets could be implemented based on LVGL components:
 **JSON Example:**
 ```json
 {
-  "type": "chart",
+  "type": "advanced_chart",
   "id": "temp_history",
   "x": 50,
   "y": 250,
@@ -1145,7 +1185,7 @@ The following widgets could be implemented based on LVGL components:
 - **Publishes to:** `mqtt_topic`
 - **Payload sent:** `"ON"` or `"OFF"` (string)
 - **Subscribes to:** `mqtt_topic` (auto-subscribes for bidirectional control)
-- **Expected payload:** `"ON"`, `"OFF"`, `"1"`, `"0"`, `"true"`, `"false"` (case-insensitive)
+- **Expected payload:** `"ON"`, `"1"`, `"true"` to enable; any other value is treated as OFF
 - **Trigger:** On state change (user interaction or MQTT message)
 - **Feedback prevention:** Won't republish when receiving own messages
 
@@ -1203,6 +1243,13 @@ The following widgets could be implemented based on LVGL components:
 - **Expected payload:** Tab name (e.g., `"Settings"`) or numeric index (e.g., `"2"`)
 - **Trigger:** On tab change (user swipe/tap or MQTT message)
 - **Feedback prevention:** Won't republish when receiving own messages
+
+**Line Chart Widget:**
+- **Subscribes to:** `mqtt_topic`
+- **Expected payload:** Numeric value (e.g., `"25"`)
+- **Behavior:** Appends each received value as next chart sample
+- **Value clamping:** Values are clamped to `min`/`max`
+- **Does not publish** (read-only indicator)
 
 **Container Widget:**
 - **Does not use MQTT** (layout only)
@@ -1273,7 +1320,7 @@ All widget updates from MQTT callbacks use `lv_async_call()` to ensure thread-sa
 
 ### Feedback Loop Prevention
 
-Widgets that support bidirectional MQTT communication (Switch, Slider) implement feedback loop prevention using the `m_updating_from_mqtt` flag. This prevents widgets from republishing messages they just received.
+Widgets that support bidirectional MQTT communication (Switch, Checkbox, Slider, Arc, Dropdown, Tabview) implement feedback loop prevention using the `m_updating_from_mqtt` flag. This prevents widgets from republishing messages they just received.
 
 ### Retained Messages
 
@@ -1556,5 +1603,5 @@ Colors are specified in hex format with a `#` prefix:
 
 ---
 
-**Last Updated:** January 29, 2026  
+**Last Updated:** February 24, 2026  
 **Version:** 1.0
