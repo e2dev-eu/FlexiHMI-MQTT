@@ -1,0 +1,30 @@
+name: Build default firmware
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build with ESP-IDF (default project settings)
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$HOME/esp/esp-idf/export.sh"
+          export IDF_CMAKE_GENERATOR="Unix Makefiles"
+          idf.py build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flexihmi-default-build
+          path: |
+            build/*.bin
+            build/*.elf
+            build/flasher_args.json
