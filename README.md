@@ -80,9 +80,28 @@ FlexiHMI currently supports the following boards:
 
 ![ESP32-P4-Function-EV-Board](docs/ESP32-P4-Function-EV-Board.png)
 
+AliExpress links:
+- Option 1: [AliExpress listing](https://s.click.aliexpress.com/e/_c4EmCdXl)
+- Option 2: [AliExpress listing](https://s.click.aliexpress.com/e/_c31V6RoJ)
+- Option 3: [AliExpress listing](https://s.click.aliexpress.com/e/_c3L6pOqf)
+
+
 #### JC1060WP470C_I_W_Y
 
 ![JC1060WP470C_I_W_Y](docs/JC1060WP470C_I_W_Y.png)
+
+AliExpress links:
+- Option 1: [AliExpress listing](https://s.click.aliexpress.com/e/_c4d63wzz)
+- Option 2: [AliExpress listing](https://s.click.aliexpress.com/e/_c40FWALp)
+- Option 3: [AliExpress listing](https://s.click.aliexpress.com/e/_c4m4rYwP)
+- Option 4: [AliExpress listing](https://s.click.aliexpress.com/e/_c2R4L73d)
+- Option 5: [AliExpress listing](https://s.click.aliexpress.com/e/_c3N44OaP)
+- Option 6: [AliExpress listing](https://s.click.aliexpress.com/e/_c3dQgepN)
+- Option 7: [AliExpress listing](https://s.click.aliexpress.com/e/_c4ewqmzd)
+- Option 8: [AliExpress listing](https://s.click.aliexpress.com/e/_c4np4pjV)
+- Option 9: [AliExpress listing](https://s.click.aliexpress.com/e/_c45KtiFD)
+- Option 10: [AliExpress listing](https://s.click.aliexpress.com/e/_c4V9O0Zd)
+- Option 11: [AliExpress listing](https://s.click.aliexpress.com/e/_c4OIOpgP)
 
 ### Board Selection
 
