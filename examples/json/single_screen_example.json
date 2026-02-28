@@ -82,7 +82,7 @@
               "type": "slider",
               "id": "volume",
               "x": 10,
-              "y": 100,
+              "y": 130,
               "w": 300,
               "h": 25,
               "properties": {

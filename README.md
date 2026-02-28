@@ -5,6 +5,10 @@ The user interface is created and reconfigured at runtime using dynamic JSON con
 
 FlexiHMI started as a small personal project and gradually evolved into its current form. As it became more capable and useful, I decided to refine it and release it as an open-source project.
 
+# Video
+[![Live demo](https://img.youtube.com/vi/bkQGmaKlhUo/0.jpg)](https://www.youtube.com/watch?v=bkQGmaKlhUo)
+
+# Screenshots
 ![Demo screenshots](examples/screnshots/animated.gif)
 
 ## Key Features
