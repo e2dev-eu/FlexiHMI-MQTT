@@ -6,7 +6,7 @@ The FlexiHMI MQTT system implements network configuration persistence with prope
 
 ## Architecture
 
-### Separation of Concerns
+### Separation of Concerns 
 
 **Network Managers** (LAN Manager & Wireless Manager):
 - Own their configuration data
